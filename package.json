@@ -1,0 +1,23 @@
+{
+  "name": "idpam",
+  "version": "1.0.0",
+  "description": "Identity Provider and Access Manager",
+  "main": "bin/idpam",
+  "scripts": {
+    "test": "usr/bin/test"
+  },
+  "author": "febef <febef.dev@gmail.com>",
+  "license": "ISC",
+  "dependencies": {
+    "body-parser": "^1.19.0",
+    "compression": "^1.7.4",
+    "cookie-parser": "^1.4.5",
+    "esm": "^3.2.25",
+    "express": "^4.17.1",
+    "helmet": "^4.4.1",
+    "hpp": "^0.2.3",
+    "mongoose": "^5.12.0",
+    "morgan": "^1.10.0",
+    "xss-clean": "^0.1.1"
+  }
+}
