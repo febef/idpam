@@ -1,0 +1,15 @@
+header
+  nav
+    h1.logo IdPAM
+    span »
+    h2.pageTitle= pageTitle
+  if (user)
+    .userMenu
+      figure
+       img(src="")
+      a(href="/")
+        span= user.metadata.nickName
+        span @
+        span= user.domain
+      span |
+      a.logout(href="/logout") logout
