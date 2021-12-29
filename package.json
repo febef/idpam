@@ -4,6 +4,7 @@
   "description": "Identity Provider and Access Manager",
   "main": "bin/idpam",
   "scripts": {
+    "start": "bin/main",
     "test": "usr/bin/test"
   },
   "author": "febef <febef.dev@gmail.com>",

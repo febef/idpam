@@ -1,60 +1,33 @@
 
 extends ../layouts/main.pug
+include ../mixin/home.pug
+include ../mixin/editableobject.pug
 
 block main
+
   section.main
-    figure
-      span= user.metadata.nickName
-      span @
-      span= user.domain
-    section.metadata
-      h3 MetaData
-      fieldset
-        for propVal, propName in user.metadata
-          if (propName.indexOf('_')!=0)
-            if (!(propVal instanceof Array))
-              span.min-info= `${propName}:`
-                span.property(data-action=`!/metadata/${user.metadata._id}/edit/${propName}`)= propVal
-            else
-              span.min-info= `${propName}:`
-                | [
-                for item in propVal
-                  span.property(data-action=`!/metadata/${user.metadata._id}/${propName}/edit/${item}`)= item
-                  button.property(data-action=`!/metadata/${user.metadata._id}/${propName}/delete/${item}`) x
-                else
-                  span.min-info ø
-                | ]
-              button.min-btn(data-action=`!/metadata/${user.metadata._id}/${propName}/atach`) (+)
-            br
+
+    section.user.m-1
+      +user(user)
+
+    section.box.m-1(data-target=`metadata:${id.metadatas.id}`)
+      header.boxTitle
+        h3 metadata
+
+      +editableObject(id.metadatas, '', '')
 
     section.credentials
-      h3 Credentials
-      for credentials, credentialType in user.credentials
-        article.credentialTypeCollection.credentials
-          span.typeCredential
-            span.min-info type:
-              b.typeName= credentialType
-            button.min-info(data-action=`/credential/${credentialType}/create`) (+)
+      header
+        h3 Credentials
 
-          for credential, key in credentials
-            fieldset.credential
-              for propValue, propName in credential
-                if (propName.indexOf('_')!=0)
-                  if (!(propValue instanceof Array))
-                    span.min-info= `${propName}:`
-                      span.property(data-action=`!/credential/${credentialType}/${credential._id}/edit/${propName}`)= propValue
-                  else
-                    span.min-info= `${propName}:`
-                      | [
-                      for item in propValue
-                        span.property(data-action=`!/credential/${credentialType}/${credential._id}/${propName}/edit/${item}`)= item.name
-                          button.property(data-action=`!/credential/${credentialType}/${credential._id}/${propName}/delete/${item}`) x
-                      else
-                        span.min-info ø
-                      | ]
-                    button.min-btn(data-action=`!/credential/${credentialType}/${credential._id}/${propName}/atach`) (+)
-                  br
+      for credentials, credentialType in id.credentials.toJSON()
+        +credentialTypeSection(credentialType, credentials[credentialType])
+
+          for credential, key in id.credentials[credentialType]
+            article.box(data-target=`${credentialType.split('').slice(0,-1).join('')}:${credential.id}`)
+              +editableObject(credential, key, '')
+              fieldset.flex-rigth
+                button.min-info(data-verb='delete') (delete)
+              //`credential.${credentialType}`)
           else
-            span.min-info.text-center no hay credenciales de este tipo
-
-
+            span.min-info no hay credenciales

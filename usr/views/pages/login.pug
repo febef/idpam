@@ -3,7 +3,7 @@ extends ../layouts/main.pug
 
 block main
   section.main
-    form.form(action="/login" method="POST")
+    form.form(verb="/login" method="POST")
      h1 Welcome
      input(type="text" placeholder="uf" name="userfacade")
      input(type="password" placeholder="key", name="password")
