@@ -1,0 +1,9 @@
+
+cd ..
+
+docker rm -f idpam0
+docker rmi idpam
+
+docker build . -t idpam
+
+docker run -d -it --name idpam0 -p 8082:80 idpam:latest

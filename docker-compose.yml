@@ -1,0 +1,21 @@
+version: '3'
+services:
+  gitsnacke:
+    build: .
+    restart: always
+    container_name: gitsnack
+    privileged: true
+    expose:
+      - "80"
+    environment:
+      - VIRTUAL_HOST=idpam.koders.space
+      - VIRTUAL_PORT=80
+      - LETSENCRYPT_HOST=idpam.koders.space
+      - LETSENCRYPT_EMAIL=febef.dev@gmail.com
+    volumes:
+      - ../../volumes/gitsnak/:/var/jenkins_home
+
+networks:
+  default:
+     external:
+       name: webproxy
