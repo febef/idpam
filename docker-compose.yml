@@ -3,7 +3,7 @@ services:
   gitsnacke:
     build: .
     restart: always
-    container_name: gitsnack
+    container_name: idpam
     privileged: true
     expose:
       - "80"
