@@ -1,0 +1,87 @@
+mixin property(object, item, parent)
+  span.min-info= `${item}: `
+    span.verb(data-verb='edit' data-type=object.constructor.name data-target=`${parent?'.'+parent:''}${item}`)= object
+  br
+
+mixin propertyBool(object, item, parent)
+  span.min-info= `${item}: `
+    span.verb(data-verb='edit' data-type=object.constructor.name data-target=`${parent?'.'+parent:''}${item}`)= object
+    button.checkbox
+      input(type="checkbox", checked=object)
+  br
+
+mixin btn(object, verb, item, parent, classlist='min-info', caption='(+)', model)
+  - model= model || item
+  button(data-ref=(getSchemas().includes(model)? model : null) data-type=(object?object.constructor.name:null) data-verb=verb data-target=(parent?parent+'.':'')+(item?item:'') class=classlist)= caption
+
+mixin propertyArray(object, item, parent, itemprop=false)
+  label.min-info= `${item}:`
+  ='['
+  span.array(data-target=`${parent?'.'+parent:''}${item}` data-ref=(getSchemas().includes(item)? item : null) data-type=object.constructor.name)
+    for childObject, k in (object.toJSON? object.toJSON() : object)
+      span.item(data-target=k data-type=childObject.constructor.name)
+        if(childObject._id)
+          +btn(null,'delete',null, null, 'verb', 'x')
+          span.verb(data-verb='read') !{childObject.name||childObject._id}
+        else
+          +btn(null,'delete', null, null, 'verb', 'x')
+          span.verb(data-verb='edit')= childObject
+    else
+      span.voidItem ø
+  |]
+  +btn(object, 'append', item)
+  br
+
+mixin permissionsTable(object, item, parent, itemprop=false)
+ 
+  table
+    thead
+      tr
+        label.min-info= `${item}`
+      tr
+    tbody(data-target=`${parent?'.'+parent:''}${item}` data-ref=(getSchemas().includes(item)? item : null))
+      // data-type=object.constructor.name)  
+      pre= object
+    //
+      
+  br
+
+mixin voidProperty()
+  = 'ø'
+  br
+
+mixin hideProperty()
+  // hidenproperty
+
+mixin editableObject(object, item='', parent='', itemClass='', ignoreProp='_')
+  //span= typeof object
+  if (!(item.indexOf && item.indexOf(ignoreProp)>=0))
+    if (typeof object == 'boolean')
+      fieldset 
+        +propertyBool(object, item)
+    else if(typeof object == 'number')
+      fieldset(data-target=parent)
+        +property(object, item, '')
+    else if (!object)
+      fieldset
+        +voidProperty()
+    else if (object instanceof Array )
+      fieldset(data-target=parent)
+        if (item == 'permissions')
+          +permisionsTable(object, item)
+        else
+          +propertyArray(object, item, '', 'name')
+    else if (object.constructor.name == 'String' || object.constructor.name == 'Number' || object.constructor.name == 'Boolean')
+      fieldset(data-target=parent)
+        +property(object, item, '')
+    else if (object.constructor.name == 'model' || object.constructor.name == 'Object' || object.constructor.name == 'CoreMongooseArray' || object.constructor.name == "Array" || object.constructor.name == "Document")
+      for childObject, prop in (object.toJSON? object.toJSON() : object)
+        if ( object._id && object.constructor.name == 'CoreMongooseArray')
+          +editableObject(object[prop], prop, `${parent}:${object._id}`)
+        if ( object._id && parent)
+          +editableObject(object[prop], prop, `${parent}:${object._id}/${isNaN(Number(item))? item : ''}`)
+        else if(item)
+          +editableObject(object[prop], prop, `${parent?'.'+parent:''}${item}`)
+        else
+          +editableObject(object[prop], prop, null)
+

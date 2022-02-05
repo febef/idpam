@@ -1,0 +1,17 @@
+
+extends ../layouts/main.pug
+include ../mixin/home.pug
+include ../mixin/editableobject.pug
+
+block main
+
+  section.main
+    header Roles
+    
+    for rol, k in list
+      +credentialTypeSection(rol.name, rol)
+        +permissionsTable(permission, 'permission', '')
+
+        fieldset.flex-rigth
+          button.min-info(data-verb='delete') (delete)
+          //`credential.${credentialType}`)

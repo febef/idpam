@@ -3,7 +3,18 @@ header
     h1.logo IdPAM
     span »
     h2.pageTitle= pageTitle
+
   if (user)
+    nav.menu
+      span <
+      ul
+        li 
+          a(href="/", class=(pageTitle=='home' ? 'active' : '')) home
+        li 
+          a(href="/identities", class=(pageTitle=='identities' ? 'active' : '')) identities
+        li 
+          a(href="/roles", class=(pageTitle=='roles' ? 'active' : '')) roles
+      span >
     .userMenu
       figure
        img(src="")
@@ -11,5 +22,7 @@ header
         span= user.nickName
         span @
         span= user.domain
+        span /
+        span= user.credentialName
       span |
       a.logout(href="/logout") logout

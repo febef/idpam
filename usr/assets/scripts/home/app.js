@@ -16,16 +16,25 @@ class API {
     return await response.json();
   }
   async loadClass(className) {
-    const response = {success: false}
+    let response = {success: false}
     try{
       const numeral='%23'
       const imported = await import (
         `/lapi/execute/${numeral}getFrontEndClass/${className}/file`
       );
+
       response.Class = imported.default;
       response.success = true;
+
+      if(!imported.default){
+        response = await fetch(
+          `/lapi/execute/${numeral}getFrontEndClass/${className}`
+        );
+        response = await response.json();
+      }
     } catch(e){
       console.log(e);
+
     }
     return response;
   }
@@ -34,7 +43,7 @@ class API {
 class Notifications {
 
   constructor() {
-    this.notifications = [];
+    this.notifications = {};
 
     this.enotifications = document.createElement("DIV");
     this.enotifications.classList.add("Notifications");
@@ -43,18 +52,40 @@ class Notifications {
   }
 
   newNotify(primitiveNotify) {
-    const notify = new Notify(primitiveNotify, this.notifications.length);
+    const index = this.getNewIndex();
+    const notify = new Notify(primitiveNotify, index);
 
     this.enotifications.appendChild(notify.element);
-    this.notifications.push(notify);
+    this.notifications[index]= notify;
+
+    this.enotifications.style.zIndex = 100;
 
     notify.onEnded = self => {
       this.enotifications.removeChild(
         this.notifications[self.index].element
-      );
+      );      
       delete this.notifications[self.index];
+
+      if (this.countNotifications(this.notifications)==0)
+        this.enotifications.style.zIndex = 10;
     };
   }
+
+  getNewIndex() {
+    let index;
+    for (index in this.notifications) {}
+    index++;
+    if (isNaN(index)) index = 0;
+    if (this.notifications[index]!=null) return this.getNewIndex();
+    return index;
+  }
+
+  countNotifications(){
+    let counter = 0;
+    for (let index in this.notifications) counter++;
+    return counter;
+  }
+
 
 }
 
@@ -105,35 +136,106 @@ class Notify {
 }
 
 class Dialog {
-  constructor({properties, title='dialog'}) {
+  constructor({properties, title='dialog', submitCaption='send'}) {
+    this._init({properties, title, submitCaption});
+  }
+
+  _init({properties, title='dialog', submitCaption='send'}) {
     this.properties = properties;
     this.title = title;
+    this.submitCaption = submitCaption;
     this._createDialog();
   }
 
   _createDialog() {
     this.dialog = document.createElement("div");
     this.dialog.classList.add("dialog")
-    let doom =`<h3 class='boxTitle'>${this.title}</h3>`
-    doom+='<form href="#"><article class="box">';
+    let doom =`
+      <h3 class='boxTitle'>
+        ${this.title}
+        <button class='btn close'>x</button>
+      </h3>
+      <form id='_dialog0' href="#">
+        <article class="box">
+    `;
 
     for(let p in this.properties)
       doom+=this._renderProperties(this.properties[p], p);
 
-    doom+=`<fieldset>
-      <input class="btn" type='submit' value='create'>
-    </fieldset>`;  
-
-    doom+='</article></form>';
+    doom+=`
+          <fieldset>
+            <input 
+              class="btn" 
+              type='submit' 
+              value='${this.submitCaption}'>
+          </fieldset>
+        </article>
+      </form>
+    `;  
         
-    this.dialog.innerHTML = doom;
+    this.dialog.innerHTML = doom.replace(/^\s+|\s+$/g, '');
     document.body.appendChild(this.dialog);
+    this.form = this.dialog.querySelector('#_dialog0');
+
+    this._onSubmit = this._onSubmit.bind(this);
+    if (this.form) this.form.addEventListener('submit', this._onSubmit);
+    this._onkeyup = this._onkeyup.bind(this);
+    document.body.addEventListener('keyup', this._onkeyup);
+
+    this.btnClose = this.dialog.querySelector('.btn.close');
+    this._Cancel = this._Cancel.bind(this);
+    this.btnClose.addEventListener('click', this._Cancel);
+  }
+
+  _onkeyup(e) {
+    if (e.code=='Escape') this._Cancel();
+  }
+
+  _onSubmit(e) {
+    this.onSubmit.call(this, e);
+  }
+
+  _Cancel() {
+    this.form.removeEventListener('submit', this._onSubmit);
+    this.btnClose.removeEventListener('click', this._Cancel);
+    document.body.removeEventListener('keyup', this._onkeyup);
+
+    document.body.removeChild(
+      document.body.querySelector('.dialog')
+    );
+    this.onCancel.call(this);
+  }
+
+  close() {
+    this._Cancel();
+  }
+
+  onSubmit(e) {
+    e.preventDefault();
+    this.onSuccess.call(this, this.getFormData());
+  }
+
+  onSuccess() { }
+  onCancel() { }
+
+  getFormData() {
+    const formData = new FormData(this.form);
+    const form = {};
+    let item, iterator = formData.keys() ;
+    do {
+      item = iterator.next();
+      form[item.value] = formData.get(item.value);
+    } while(!item.done)
+
+    delete form.undefined;
+    return form;
   }
 
   _renderProperties(v, k) {
     return `
       <fieldset>
-        <label class="min-info">${k}:</label><input type="${v.type}">
+        <label class="min-info">${k}:</label>
+        <input name='${k}' type="${v.type}">
         <br>
       </fieldset>
     `;
@@ -263,7 +365,7 @@ class SelectMenu {
       this.btnOk.innerText = 'ok'
 
       this.onOk = () => {
-        if (this.input.value.trim() != "")
+        if (this.input.value.replace(/^\s+|\s+$/g, '') != "")
         this.onSetValue(this.input.value);
       };
 
@@ -286,7 +388,7 @@ class SelectMenu {
 
       for (let option of this.options) {
         eOption = document.createElement('OPTION');
-        eOption.innerText = option.text;
+        eOption.innerText = option.text||option.value;
         eOption.value = option.value;
         this.select.appendChild(eOption);
       }
@@ -341,6 +443,59 @@ class SelectMenu {
 
 }
 
+class VisibilityFilter {
+  constructor(selector) {
+    this.filters = document.querySelectorAll(selector);
+
+    this.filters.forEach(e => {
+      e.addEventListener('keypress', this._filterController.bind(this));
+      e.addEventListener('keyup', this._filterController.bind(this));
+      e.addEventListener('focusout', this._filterController.bind(this));
+    });
+  }
+
+  _filterController(e) {
+    const input = e.target;
+    const filterText = input.value.trim();
+
+    const listToFilter = input
+      .parentElement.parentElement.parentElement.parentElement
+      .parentElement.querySelectorAll('article');
+
+    listToFilter.forEach(a => {
+      let match = true;
+      const items = [...a.querySelectorAll('.verb')]
+        .filter( a => a.dataset.target !='')
+        .map( a => 
+          (a.dataset.target?? a.parentElement.parentElement.dataset.target)
+            + `:${a.innerText}`
+        );
+      
+      for (let item of items) {
+        const propItem = item.split(':')[0];
+        const filter = filterText.split(';')
+          .filter(f => f.indexOf(propItem)!=-1);
+        
+        if(item.trim().indexOf(filter)==-1)
+          match = match && false;
+    
+    
+        console.log(item,match);
+
+
+      }
+    
+    
+      console.log(a, match);
+      
+      a.style.display = (match || filterText=='')? 'block' : 'none';
+      
+    });
+
+  }
+
+}
+
 class PropertiesEditor {
   constructor(notifier) {
     this.notifier = notifier;
@@ -391,7 +546,7 @@ class PropertiesEditor {
     let data, dated = element;
     do {
       data = dated.dataset[key];
-      dated = dated.parentNode;
+      dated = dated.parentElement;
       if(dated.tagName=="HTML") return null;
     } while (!data)
     return [data, dated];
@@ -404,9 +559,17 @@ class PropertiesEditor {
   }
 
   async _delete(element){
-    const property = element.nextSibling;
+
+
+    if ('SI'!==prompt("Seguro quiere eliminar ese elemento?(si decea hacerlo escriba 'SI')", 'No')) return;
+
+    let property = element.nextSibling
+    
+    if (!property || property.nodeName == '#text')
+      property = element.parentElement.parentElement;
+    element.parentElement.parentElement;
     const button = element;
-    const item = element.parentNode;
+    const item = element.parentElement;
 
     property.classList.add('property-deleted');
     
@@ -416,12 +579,17 @@ class PropertiesEditor {
     item.dataset.target = item.dataset.target + "~";
     
     if (result.success) {
-      const array = property.parentNode.parentNode;
-      const item = property.parentNode;
-      item.removeChild(button);
-      array.removeChild(item);
-      if ( result.arraylength == 0 )
-        array.innerHTML = '<span class="voidItem">ø</span>';
+      if (!result.isObject){
+        const array = property.parentElement.parentElement;
+        const item = property.parentElement;
+        item.removeChild(button);
+        array.removeChild(item);
+        if ( result.arraylength == 0 )
+          array.innerHTML = '<span class="voidItem">ø</span>';
+      } else {
+        property.parentElement.removeChild(property);
+      }
+
     } else {
       property.classList.remove('property-deleted');
       item.dataset.target = item.dataset.target.slice(0,-1);
@@ -429,7 +597,7 @@ class PropertiesEditor {
 
     this.notifier.newNotify({
       title: 'delete',
-      message: `success: ${result.success}`
+      message: `success: ${result.success}${(result.code == 401) ? '<br>Permiso denegado' : ''}`
     });
   }
 
@@ -438,16 +606,16 @@ class PropertiesEditor {
 
     if (element.dataset.ref) {
       const response = await this.api.doRequest(
-        'read', "#getListOfDocs", null, element.dataset.ref.slice(0,-1)
+        'read', "#getListOfDocs", element.dataset.ref.slice(0,-1)
       );
       if (!response.success) return;
       options = response.value.map (model => ({
-        text:model.name, value: model._id
+        text:model.name||model._id, value: model._id
       }));
     }
 
     this.selectMenu = new SelectMenu(element, options);
-    this.selectMenu.onSetValue = async (value) => {
+    this.selectMenu.onSetValue = async (value, name) => {
 
       this.selectMenu.destroy();
       const result = await this.api.doRequest(
@@ -456,7 +624,10 @@ class PropertiesEditor {
 
       this.notifier.newNotify({
         title: 'append',
-        message: `success: ${result.success}`
+        message: `
+          <small>success: ${result.success}</small>
+          ${(result.code == 401) ? '<br>Permiso denegado' : ''}
+        `.replace(/^\s+|\s+$/g, '')
       });
 
       if (!result.success) return;
@@ -464,14 +635,14 @@ class PropertiesEditor {
       const item = document.createElement('SPAN');
       const property = document.createElement('SPAN');
       const button = document.createElement('button');
-      const array = element.parentNode.querySelector('.array');
+      const array = element.parentElement.querySelector('.array');
 
       let index = Number(
-        array.lastElementChild.dataset.target?.replaceAll('~', '')
+        array.lastElementChild?.dataset?.target?.replaceAll('~', '')
       ) + 1 ;
       index = isNaN(index) ? 0 : index;
 
-      if(!array.lastElementChild.dataset.target) {
+      if(!array.lastElementChild?.dataset?.target) {
         array.innerHTML = "";
       }
 
@@ -485,7 +656,7 @@ class PropertiesEditor {
       
       property.classList.add('verb');
       property.dataset.verb = (options? 'read' : 'edit');
-      property.innerHTML = value;
+      property.innerHTML = name ?? value;
 
       item.appendChild(button);
       item.appendChild(property);
@@ -529,7 +700,7 @@ class PropertiesEditor {
                 <small>
                   El valor solo puede ser 'true' o 'false'
                 </small><br>
-                success: ${result.success}`.trim()
+                success: ${result.success}`.replace(/^\s+|\s+$/g, '')
             });
 
           } else if (
@@ -544,7 +715,7 @@ class PropertiesEditor {
                 <small>
                   El valor debe ser un numero mayor o igual a 0
                 </small><br>
-                success: ${result.success}`.trim()
+                success: ${result.success}`.replace(/^\s+|\s+$/g, '')
             });
 
           }else{
@@ -554,7 +725,7 @@ class PropertiesEditor {
 
             this.notifier.newNotify({
               title: 'edit',
-              message: `success: ${result.success}`
+              message: `success: ${result.success}${(result.code == 401) ? '<br>Permiso denegado' : ''}`  
             });
           }
           
@@ -570,7 +741,9 @@ class PropertiesEditor {
     }
   }
 
-  async _create({dataset: {target}}) {
+  async _create(element) {
+
+    const target = element.dataset['target'];
 
     let className = target.toLowerCase();
     if (className.indexOf('credential')==0) {
@@ -580,20 +753,106 @@ class PropertiesEditor {
       className = className.slice(0,-1);
 
     if (this.dialogs[className] != undefined ) return;
-
-    console.log("Creating ", className, "...");
-
+    
     if (this.authtypes[className] == undefined) {
-        const {success, Class} = await this.api.loadClass(className)
-        if (!success) throw Error("mala ahi!")
+        const {success, Class, code} = await this.api.loadClass(className)
+        if (!success || typeof Class !== 'function') this.notifier.newNotify({
+          title: `${className[0].toUpperCase()}${className.slice(1)}`,
+          message: `
+            <small>No se pudo cargar la clase '${className}'</small>
+            ${(code == 401) ? '<br>Permiso denegado' : ''}
+          `.replace(/^\s+|\s+$/g, '')
+        });
         this.authtypes[className] = Class;
     }
+    try {
 
-    const onCloseDialog = ()=>{
-      console.log("close dialog");     
+      this.dialogs[className] = new this.authtypes[className]({
+        onSuccess: async (e) => {
+          console.log(e)
+          const result = await this.api.doRequest(
+            'create', className, null, e
+          );
+
+          if (result.success) {              
+            const credential = result.value;
+            console.log("NewCredential", result.value);
+
+            let newdom =`
+              <article class="box" data-target="${className}:${credential._id}">
+              <fieldset>
+                <span class="min-info">
+                  enabled: <span class="verb" data-verb="edit" data-type="Boolean" data-target="enabled">${credential.enabled}</span>
+                </span><br>
+              </fieldset>
+              <fieldset>
+                <span class="min-info">
+                  expiration: <span class="verb" data-verb="edit" data-type="Number" data-target="expiration">${credential.expiration}</span>
+                </span><br>
+              </fieldset>
+              <fieldset>
+                <label class="min-info">roles:</label>
+                  [ ${                      
+                    (credential.roles.length == 0)
+                    ? 'ø'
+                    : credential.roles.map((role, idx) => `<span class="array" data-target="roles" data-ref="roles" data-type="CoreMongooseArray">
+                      <span class="item" data-target="${idx}" data-type="model">
+                        <button class="verb" data-verb="delete" data-target="">x</button>
+                        <span class="verb" data-verb="read">
+                          ${role.name}
+                        </span>
+                      </span>
+                    </span>`).join()
+                    }
+                  ]
+                  <button class="min-info" data-ref="roles" data-type="CoreMongooseArray" data-verb="append" data-target="roles">(+)</button>
+                  <br>
+              </fieldset>
+              <fieldset>
+                <span class="min-info">
+                  name: <span class="verb" data-verb="edit" data-type="String" data-target="name">${credential.name}</span>
+                </span><br>
+              </fieldset>
+              <fieldset class="flex-rigth">
+                <button class="min-info" data-verb="delete">(delete)</button>
+              </fieldset>
+            </article>
+            `.replace(/^\s+|\s+$/g, '');
+
+
+            element.parentElement.parentElement.querySelector('.scroll-container').innerHTML += newdom;
+
+            this.dialogs[className].close();
+            this.notifier.newNotify({
+              title: `${className[0].toUpperCase()}${className.slice(1)}`,
+              message: 'Credencial creada!'
+            });
+          } else {
+            this.notifier.newNotify({
+              title: `${className[0].toUpperCase()}${className.slice(1)}`,
+              message: 'Error al crear la credencial!'
+            });
+          }
+        },
+        onCancel: () => {
+          delete this.dialogs[className];            
+        },
+        notifier: (mensage) => {
+          this.notifier.newNotify({
+            title: `${className[0].toUpperCase()}${className.slice(1)}`,
+            message: mensage
+          });
+        }
+      });
+    } catch (e) {
+      this.notifier.newNotify({
+        title: `${className[0].toUpperCase()}${className.slice(1)}`,
+        message: `
+          success: ${result.success}${(result.code == 401) ? '<br>Permiso denegado' : ''}
+          <small>Error:<pre>${e.toString()}</pre></small>
+        `.replace(/^\s+|\s+$/g, '')
+      });
     }
-
-    this.dialogs[className] = new this.authtypes[className]();    
 
   }
 
@@ -615,6 +874,7 @@ class UserManagement {
   constructor() {
     this.notifier = new Notifications();
     this.propetiesEditor = new PropertiesEditor(this.notifier);
+    this.visibilityFilter = new VisibilityFilter('.box.filter input');
 
   }
 

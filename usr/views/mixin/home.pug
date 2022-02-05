@@ -1,0 +1,13 @@
+
+include ../mixin/editableobject.pug
+
+mixin user(model)
+  span= `${model.nickName}@${model.domain?model.domain:''}/${model.credentialName}`
+
+mixin credentialTypeSection(credentialType, object)
+  section.box.m-1
+    header.boxTitle
+      h4.min-info type:
+        b.typeName= credentialType
+      +btn(object,'create', `Credential${credentialType.charAt(0).toUpperCase() + credentialType.slice(1)}`)
+    block

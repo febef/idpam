@@ -1,0 +1,304 @@
+
+body, html {
+  overflow-y: auto;
+  min-height: 100vh;
+}
+
+a {
+  color: whitesmoke;
+  text-decoration: none;
+  font-size: 14px;
+  margin-left: 3px;
+  margin-right: 3px;
+}
+
+a.logout {
+  display: inline-block;
+  font-size: 10px;
+  transform: translateY(-1px);
+  transition: color .2s;
+}
+
+a.logout:hover {
+  color: orangered
+}
+
+.user {
+  width:100%;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-evenly;
+}
+
+.m-1 {
+  margin: 1rem;
+}
+
+section {
+  z-index:100;
+}
+
+section.main {
+  overflow-y: auto;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-evenly;
+}
+
+section.credentials header h3 {
+  width: 100vw;
+}
+
+section.metadata {
+  min-width: 100vw;
+  padding-left: 20vw;
+  padding-right: 20vw;
+}
+
+section.credentials {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-evenly;
+  align-items: start;
+}
+
+.boxTitle {
+  border: solid 1px #00000040;
+  background-color: #00000060;
+}
+
+fieldset {
+  border: none;
+  display: flex;
+  align-items: center;
+}
+
+.typeCredential {
+  display: flex;
+  justify-content: space-between;
+}
+
+.box {
+  background-color: #00000030;
+  border: solid 1px #00000030;
+  color: black;
+}
+
+span {
+  font-size: 12px;
+}
+
+b {
+  font-size: 14px;
+  font-weight: bolder;
+}
+
+.min-info {
+  font-family: monospace;
+  font-size: 10px;
+  padding: 1px;
+  font-weight: 300;
+}
+
+.min-btn {
+  font-family: monospace;
+  font-size: 8px;
+  padding: 1px;
+}
+
+section h3 {
+  display: block;
+  width: 100%;
+  text-align: center;
+}
+
+.text-center {
+  text-align: center;
+}
+
+span.verb,
+b.typeName {
+  font-family: 'Monserrat';
+  font-weight: bold;
+}
+
+button.verb {
+  opacity: 0;
+  font-family: monospace;
+  font-weight: bold;
+  padding: 0px 2px 0px 1px;
+  margin: -1px 0 0 -2px;
+}
+
+.btn, button {
+  background: none;
+  border:none;
+  transition: all .3s;
+}
+
+.btn:hover, button:hover{
+  background-color: #00000040;
+  transform :rotate(360);
+}
+
+button.verb:hover + span {
+  text-decoration: line-through 2px;
+}
+span.array{
+  padding-left: 8px;
+}
+span.item {
+  display: inline-flex;
+}
+span.voidItem{
+  margin-left: -8px;
+}
+span.item span.verb {
+ order:1;
+}
+span.item button.verb {
+  order:2;
+}
+
+span.item:hover button.verb{
+  opacity: 1;
+  display: inline-block;
+  color:darkred;
+}
+
+.modal input{
+  width: 120px;
+  min-width: 120px;
+  max-width: 120px;
+  background: none;
+  border: solid 1px #00000030;
+}
+
+.box.modal {
+ background-color: #000000aa;
+}
+
+.box.modal button,
+.box.modal input {
+  color: whitesmoke;
+}
+
+[contenteditable="true"]:active,
+[contenteditable="true"]:focus{
+  border: none;
+  background-color:  whitesmoke;
+  padding: 0px 2px 0px 2px;
+  outline:none;
+  animation: none;
+}
+
+[contenteditable="true"]{
+  border: none;
+  padding: 0px 2px 0px 2px;
+  outline: none;
+  animation: blink-animation 1s steps(3, start) infinite;
+}
+
+@keyframes blink-animation {
+  to {
+      background-color: #00000040;
+  }
+}
+@-webkit-keyframes blink-animation {
+  to {
+      background-color: #00000000;
+  }
+}
+
+.property-deleted {
+  text-decoration: line-through 1px;
+  opacity: 0.5;
+  font-weight: 100 !important;
+  margin-right: 10px;
+  font-size: 10px;
+}
+
+.Notify {
+  margin: 6px;
+  transition: all 1s;
+}
+
+.flex-rigth {
+  justify-content: flex-end;
+}
+
+.Notifications {
+  position: fixed;
+  top: 40px;
+  left: calc( 100% - 200px);
+  width: 200px;
+  height: calc( 100vh - 40px);
+  display: flex;
+  flex-direction: column-reverse;
+  justify-content: flex-end;
+  align-items: flex-end;
+  padding: 6px;
+  z-index: 10;
+}
+
+.dialog {
+  background-color: #00000030;
+  backdrop-filter:blur(2px);
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%,-50%);
+  z-index:200;
+}
+
+.dialog * {
+  position: relative;
+  z-index: 300;
+}
+
+.dialog::after {
+  content: '';
+  width:100%;
+  height: 100%;
+  position: absolute;
+  left:0; top: 0;
+  display: block;
+  background-color: #4db8b640;
+  backdrop-filter:blur(2px);
+  z-index: 150;
+} 
+
+.dialog article {
+  margin: 1px;
+  padding-bottom: 2px;
+}
+
+.dialog input {
+  border: 1px solid #00000040;
+  background: #00000000;
+  border-radius: 4px;
+  padding: 0px 2px 0px 2px;
+  max-width: calc(70% - 10px);
+  height: 14px;
+}
+
+.dialog article {
+  padding-top: 4px;
+  padding-bottom: 2px;
+}
+
+.dialog input:focus,
+.dialog input:active {
+  outline:none;
+  animation: none;
+}
+
+.dialog label.min-info {
+  min-width: 30%;
+  text-align: end;
+}
+
+.dialog input.btn {
+  margin-left: auto;
+  margin-right: auto;
+  font-size: 11px;
+} 
