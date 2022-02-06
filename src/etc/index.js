@@ -7,8 +7,8 @@ export default {
   },
   database:{
     user: 'root',
-    password: 'example',
-    host: '192.168.100.42',//'10.0.0.2',
+    password: 'toor',
+    host: '10.0.0.2',
     port: 27017, // ??
     dbName: 'idpam'
   },
