@@ -1,15 +1,19 @@
-import fs from 'fs'
-import path from 'path'
-
 import mongoose from 'mongoose'
+import Identity from './models/Identity.js'
+import MetaData from './models/MetaData.js'
+import Permission from './models/Permission.js'
+import Role from './models/Role.js'
+import SimpleCredential from './models/SimpleCredential/index.js'
+import TokenCredential from './models/TokenCredential/index.js'
+import SSHKeyCredential from './models/SSHKeyCredential/index.js'
+import LDAPCredential from './models/LDAPCreadential/index.js'
 
 export default class DB {
   constructor(config) {
-    const props = ['user', 'password', 'host', 'port', 'dbName']
-    props.forEach( p => this[p] = config[p] );
+    this.uri = config.uri;
     this.mongoose = mongoose;
     this._setup();
-    this._connect();
+    this.ready = this._connect();
     this.ObjectId = mongoose.Types.ObjectId;
   }
 }
@@ -21,17 +25,16 @@ DB.prototype._setup =  function() {
 }
 
 DB.prototype._addModels = function() {
-  const files = fs.readdirSync(path.join(__dirname, 'models'));
-
-  for(let file of files) if ( file[0]!='.') {
-    const model = require(path.join(__dirname, 'models', file)).default;
-    const modelName = file
-      .slice(0, (file.indexOf(".js")>0)? -(".js".length) : file.length)
-      .toLowerCase();
-    console.log("  » Load model:", modelName);
-    if (!this.models) this.models = {};
-    this.models[modelName] = model;
-  }
+  this.models = {
+    identity: Identity,
+    metadata: MetaData,
+    permission: Permission,
+    role: Role,
+    simplecredential: SimpleCredential,
+    tokencredential: TokenCredential,
+    sshkeycredential: SSHKeyCredential,
+    ldapcredential: LDAPCredential
+  };
 };
 
 DB.prototype.onError = function() {
@@ -43,14 +46,5 @@ DB.prototype.onOpenConnection = function() {
 }
 
 DB.prototype._connect = function() {
-  const connectionString =
-    "mongodb://" + this.user + ":" + this.password + "@" 
-    + this.host + ":" + this.port + "/" + this.dbName 
-    +"?retryWrites=true&w=majority&authSource=admin";
-    
-  this.mongoose.connect( connectionString, {
-    useCreateIndex: true,
-    useNewUrlParser: true,
-    useUnifiedTopology: true
-  });
+  return this.mongoose.connect(this.uri, { serverSelectionTimeoutMS: 5000 });
 }

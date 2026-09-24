@@ -1,0 +1,33 @@
+# Local-only demo, deliberately separate from the historical docker-compose.yml.
+services:
+  mongo:
+    image: mongo:7.0
+    command: ["mongod", "--bind_ip_all", "--quiet"]
+    tmpfs:
+      - /data/db:size=268435456,mode=1777
+    networks: [demo]
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand({ ping: 1 }).ok"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  app:
+    image: idpam-demo:local
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      IDPAM_DEMO_MODE: "1"
+      MONGODB_URI: mongodb://mongo:27017/idpam_demo
+      BIND_HOST: 0.0.0.0
+      PORT: "3000"
+      RESET_INTERVAL_SECONDS: ${RESET_INTERVAL_SECONDS:-3600}
+    ports:
+      - "127.0.0.1:3000:3000"
+    networks: [demo, frontend]
+
+networks:
+  demo:
+    internal: true
+  frontend: {}

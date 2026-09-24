@@ -1,6 +1,7 @@
 import mongoose from 'mongoose'
 import bcrypt from 'bcrypt'
 import fs from 'fs'
+import { fileURLToPath } from 'url'
 
 let saltRounds = 10;
 
@@ -23,7 +24,7 @@ SimpleCredentialSchema.statics.configure = function(configs) {
 };
 
 SimpleCredentialSchema.statics.getFrontEndClass = function(){
-  return fs.readFileSync(__dirname+'/SimpleCredential.feClass.js', 'utf8');
+  return fs.readFileSync(fileURLToPath(new URL('./SimpleCredential.feClass.js', import.meta.url)), 'utf8');
 }
 
 SimpleCredentialSchema.pre('save', function(next) {
@@ -54,7 +55,7 @@ SimpleCredentialSchema.statics.authenticate = async function(
     .exec()
 
   for (let credential of credentials) {
-    if(bcrypt.compareSync(`${userfacade}.${password}`, credential.ufpwd))
+    if(credential.enabled && bcrypt.compareSync(`${userfacade}.${password}`, credential.ufpwd))
       return credential;
   }
   return null;

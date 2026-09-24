@@ -3,3 +3,8 @@
 Dockerfile
 docker-compose.yml
 node_modules
+._*
+**/._*
+src/node_modules-bkp
+docs
+test

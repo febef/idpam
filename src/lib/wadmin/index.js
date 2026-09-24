@@ -1,13 +1,14 @@
-import path from 'path'
 import ExpressSession from 'express-session'
 import mongoose from 'mongoose'
+import { fileURLToPath } from 'url'
 
 export default class wAdmin {
 
-  constructor(idpam) {
+  constructor(idpam, config) {
 
     this.idpam = idpam;
     this.app = idpam.app;
+    this.config = config;
 
     this._createRoutes();
     this._configServer();
@@ -21,10 +22,13 @@ wAdmin.prototype._configServer = function () {
   const use = this.app.use.bind(this.app);
   const set = this.app.set.bind(this.app);
 
+  this.sessionStore = new ExpressSession.MemoryStore();
   this.eSession = new ExpressSession({
-    secret: 'ssshhhhh',
-    saveUninitialized: true,
-    resave: true
+    secret: this.config.sessionSecret,
+    store: this.sessionStore,
+    saveUninitialized: false,
+    resave: false,
+    cookie: { httpOnly: true, sameSite: 'lax' }
   });
   /*{
     secret: 'wadminsecret!shh',
@@ -41,13 +45,17 @@ wAdmin.prototype._configServer = function () {
   });*/
 
   set("view engine", "pug");
-  set("views", path.join(__dirname, '../../usr/views/pages'));
+  set("views", fileURLToPath(new URL('../../usr/views/pages/', import.meta.url)));
 
   use(
     '/assets',
-    this.idpam.express.static(path.join(__dirname, '../../usr/assets'))
+    this.idpam.express.static(fileURLToPath(new URL('../../usr/assets/', import.meta.url)))
   );
   use(this.eSession);
+  use((req, res, next) => {
+    if (this.idpam.demoResetting) return res.status(503).send('Demo data is resetting');
+    next();
+  });
   use('/', this.router);
 
 };
@@ -74,13 +82,16 @@ wAdmin.prototype._createRoutes = function () {
 
   get("/login", (req, res) => {
     if (req.session.user) return res.redirect('/');
-    res.render("login", { pageTitle: 'login', theme: "dark-theme" });
+    res.render("login", { pageTitle: 'login', theme: "dark-theme", demoReadOnly: false });
   });
 
   post('/login', async (req, res) => {
     const credential = await idpAuth(req.body)
     if (credential != null) {
-      await this._setUser(credential, req);
+      await new Promise((resolve, reject) =>
+        req.session.regenerate(error => error ? reject(error) : resolve())
+      );
+      if (!await this._setUser(credential, req)) return res.redirect('/login');
       res.redirect('/');
     } else {
       res.redirect('/login');
@@ -118,6 +129,7 @@ wAdmin.prototype._createRoutes = function () {
     res.render(page, {
       pageTitle: page,
       theme:"dark-theme",
+      demoReadOnly: req.session.user.credentialName === 'demo',
       user: req.session.user,
       id,
       ots: JSON.stringify,
@@ -137,7 +149,6 @@ wAdmin.prototype._createRoutes = function () {
       res.type('.js');
       return res.send(apires.value);
     }
-    console.log(apires)
     res.json(apires);
   });
 
@@ -156,12 +167,14 @@ wAdmin.prototype._createRoutes = function () {
 
 wAdmin.prototype._setUser = async function(credential, req) {
   const id = await this.idpam.getIdFromCredential(credential);
+  if (!id || !id.metadatas) return false;
   req.session.user = {
     nickName: id.metadatas.nickName,
     domain: id.domain,
     credentialName: credential.name,
     credentialId: credential._id
   };
+  return true;
 };
 
 wAdmin.prototype.lapi = async function ({target, verb, oldVal, newVal}, req) {
@@ -172,6 +185,9 @@ wAdmin.prototype.lapi = async function ({target, verb, oldVal, newVal}, req) {
 
 wAdmin.prototype.ifSessionActiveAutorice = async function (req, res, next) {
   if (!req.session.user) return res.redirect('/login')
-  await this._setUser({ _id: req.session.user.credentialId, name: req.session.user.credentialName}, req);
+  if (!await this._setUser({ _id: req.session.user.credentialId, name: req.session.user.credentialName}, req)) {
+    req.session.destroy(() => {});
+    return res.redirect('/login');
+  }
   next();
 }

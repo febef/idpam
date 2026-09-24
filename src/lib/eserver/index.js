@@ -37,7 +37,7 @@ eServer.prototype._setup = function() {
 };
 
 eServer.prototype.serve = function() {
-  this.app.listen(this.port, () => {
+  this.app.listen(this.port, this.host, () => {
     console.log("Server listen on port", this.port);
   });
 };

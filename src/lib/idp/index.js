@@ -1,8 +1,8 @@
 
 import mongoose from 'mongoose'
 
-import Identity from '../db/models/Identity'
-import MetaData from '../db/models/MetaData'
+import Identity from '../db/models/Identity.js'
+import MetaData from '../db/models/MetaData.js'
 
 const ObjectId =  mongoose.Types.ObjectId;
 
@@ -104,16 +104,14 @@ IdP.prototype.inferAuthClasses = function(authData) {
   return authClasses;
 }
 
-IdP.prototype.Authenticate = function(authData) {
+IdP.prototype.Authenticate = async function(authData) {
   const authClassNames = this.inferAuthClasses(authData);
   let auth = null;
 
   for (let authClassName of authClassNames) {
-    auth = this.models[authClassName].authenticate(authData);
-    console.log("[IDP] authClassName: ", authClassName, "  Authenticated!");
+    auth = await this.models[authClassName].authenticate(authData);
+    if (auth) console.log("[IDP] authClassName: ", authClassName, "  Authenticated!");
     if (auth) break;
   }
   return auth;
 };
-
-

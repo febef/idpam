@@ -1,13 +1,13 @@
 
-import eServer from '../eserver'
-import DB from '../db'
-import AM from '../am'
-import IdP from '../idp'
-import API from '../api'
-import wAdmin from '../wadmin'
+import eServer from '../eserver/index.js'
+import DB from '../db/index.js'
+import AM from '../am/index.js'
+import IdP from '../idp/index.js'
+import API from '../api/index.js'
+import wAdmin from '../wadmin/index.js'
 
 import mongoose from 'mongoose'
-import Identity from '../db/models/Identity'
+import Identity from '../db/models/Identity.js'
 
 const ObjectId = mongoose.Types.ObjectId;
 
@@ -19,7 +19,7 @@ export default class IdPAM extends eServer {
     this.idp = new IdP(idp, this);
     this.am = new AM(am, this);
     this.api = new API(this);
-    if (wadmin) this.wAdmin = new wAdmin(this);
+    if (wadmin) this.wAdmin = new wAdmin(this, wadmin);
 
 
     /* /
@@ -54,13 +54,13 @@ export default class IdPAM extends eServer {
 IdPAM.prototype.getIdFromCredential = async function(credential) {
   return await Identity
     .findOne({ $or: [{
-      "credentials.ldapcredentials": ObjectId(credential._id)
+      "credentials.ldapcredentials": new ObjectId(credential._id)
     },{
-      "credentials.sshkeycredentials": ObjectId(credential._id)
+      "credentials.sshkeycredentials": new ObjectId(credential._id)
     },{
-      "credentials.simplecredentials": ObjectId(credential._id)
+      "credentials.simplecredentials": new ObjectId(credential._id)
     },{
-      "credentials.tokencredentials": ObjectId(credential._id)
+      "credentials.tokencredentials": new ObjectId(credential._id)
     }]})
     .populate([
       'metadatas',
@@ -83,7 +83,5 @@ IdPAM.prototype.getCredential = async function(id) {
   }
   return null;
 };
-
-
 
 

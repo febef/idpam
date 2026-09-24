@@ -26,6 +26,28 @@ html, body {
   background: linear-gradient(to bottom right, #50a3a2 0%, #53e3a6 100%);
 }
 
+/* The server enforces permissions; this removes misleading edit affordances. */
+.demo-readonly button {
+  display: none;
+}
+
+.demo-readonly .verb[data-verb='edit'] {
+  pointer-events: none;
+  cursor: default;
+}
+
+.demoNotice {
+  position: fixed;
+  top: 2rem;
+  right: 1rem;
+  max-width: 16rem;
+  padding: 0.4rem 0.6rem;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.55);
+  font-size: 0.75rem;
+  z-index: 5;
+}
+
 .bg-bubbles {
   position: fixed;
   top: 0;
@@ -207,4 +229,4 @@ small {
 
 .menu ul li a.active{
   color:orangered;
-} 
+}

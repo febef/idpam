@@ -2,24 +2,24 @@
   "name": "idpam",
   "version": "1.0.0",
   "description": "Identity Provider and Access Manager",
-  "main": "bin/idpam",
+  "main": "bin/demo.js",
+  "type": "module",
   "scripts": {
-    "start": "bin/main",
-    "test": "usr/bin/test"
+    "start": "node bin/demo.js",
+    "test": "node --test ../test/*.test.mjs"
   },
   "author": "febef <febef.dev@gmail.com>",
   "license": "ISC",
   "dependencies": {
-    "bcrypt": "^5.0.1",
+    "bcrypt": "^6.0.0",
     "body-parser": "^1.19.0",
     "compression": "^1.7.4",
     "cookie-parser": "^1.4.5",
-    "esm": "^3.2.25",
     "express": "^4.17.1",
     "express-session": "^1.17.1",
     "helmet": "^4.4.1",
     "hpp": "^0.2.3",
-    "mongoose": "^5.12.0",
+    "mongoose": "^8.7.0",
     "morgan": "^1.10.0",
     "pug": "^3.0.2",
     "xss-clean": "^0.1.1"

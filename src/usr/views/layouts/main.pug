@@ -9,7 +9,7 @@ html(lang="en")
     link(rel="stylesheet", href=`/assets/styles/${theme}/base.css`)
     link(rel="stylesheet", href=`/assets/styles/${theme}/${pageTitle}.css`)
 
-  body
+  body(class=demoReadOnly ? 'demo-readonly' : '')
 
     include ../partials/header.pug
     block main

@@ -66,7 +66,7 @@ API.prototype.nativeDBRequest = async function(
       const model = new this.idpam.db.models[target](credential);
       let saved = await model.save();
 
-      identity.credentials[target+'s'] = [...identity.credentials[target+'s'], this.idpam.db.ObjectId(model._id) ];
+      identity.credentials[target+'s'] = [...identity.credentials[target+'s'], new this.idpam.db.ObjectId(model._id) ];
       saved =  await identity.save();
       
       response.value =  model;
@@ -180,4 +180,3 @@ API.prototype._deleteDocument = async function(target){
       });
     //let>
 };
-
