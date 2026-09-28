@@ -60,9 +60,9 @@ scan-development-image:
     TRIVY_USERNAME: "$CI_REGISTRY_USER"
     TRIVY_PASSWORD: "$CI_REGISTRY_PASSWORD"
   script:
+    - 'trivy image --image-src remote --format cyclonedx --output image-sbom.cdx.json "$CI_REGISTRY_IMAGE:build-dev-$CI_COMMIT_SHA"'
     - 'trivy image --image-src remote --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 "$CI_REGISTRY_IMAGE:build-dev-$CI_COMMIT_SHA"'
     - 'trivy image --image-src remote --scanners secret --exit-code 1 "$CI_REGISTRY_IMAGE:build-dev-$CI_COMMIT_SHA"'
-    - 'trivy image --image-src remote --format cyclonedx --output image-sbom.cdx.json "$CI_REGISTRY_IMAGE:build-dev-$CI_COMMIT_SHA"'
   artifacts:
     when: always
     access: maintainer
@@ -151,9 +151,9 @@ scan-main-image:
     TRIVY_USERNAME: "$CI_REGISTRY_USER"
     TRIVY_PASSWORD: "$CI_REGISTRY_PASSWORD"
   script:
+    - 'trivy image --image-src remote --format cyclonedx --output image-sbom.cdx.json "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA"'
     - 'trivy image --image-src remote --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA"'
     - 'trivy image --image-src remote --scanners secret --exit-code 1 "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA"'
-    - 'trivy image --image-src remote --format cyclonedx --output image-sbom.cdx.json "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA"'
   artifacts:
     when: always
     access: maintainer
