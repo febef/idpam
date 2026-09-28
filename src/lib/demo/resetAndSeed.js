@@ -36,8 +36,28 @@ export async function resetAndSeedDemo(models, uri, intervalSeconds, password) {
     metadatas: metadata._id
   });
 
+  // These identities are synthetic records, not login accounts. They can be
+  // edited through the narrow demo profile workflow and disappear on reset.
+  for (const profile of [
+    { nickName: 'Ada', names: ['Ada'], lastNames: ['Lovelace'], email: 'ada@idpam.test' },
+    { nickName: 'Grace', names: ['Grace'], lastNames: ['Hopper'], email: 'grace@idpam.test' },
+    { nickName: 'Lin', names: ['Lin'], lastNames: ['Demo'], email: 'lin@example.test' }
+  ]) {
+    const record = await models.metadata.create(profile);
+    const ldapCredential = profile.nickName === 'Lin' ? null : await models.ldapcredential.create({
+      name: 'LDAP vía Dex', issuer: 'http://127.0.0.1:5556/dex',
+      email: profile.email, enabled: true, roles: [role._id]
+    });
+    await models.identity.create({
+      domain: 'demo', type: 'user',
+      credentials: ldapCredential ? { ldapcredentials: [ldapCredential._id] } : {},
+      metadatas: record._id
+    });
+  }
+
   await Promise.all([
     models.role.syncIndexes(),
     models.simplecredential.syncIndexes()
   ]);
+  return credential._id;
 }

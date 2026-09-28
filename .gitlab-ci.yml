@@ -1,0 +1,208 @@
+stages: [validate, publish, inspect, release, tag]
+
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+default:
+  tags: [gitlab-runner]
+  interruptible: true
+
+include:
+  - template: Jobs/SAST.gitlab-ci.yml
+
+semgrep-sast:
+  stage: validate
+  allow_failure: false
+
+sast:
+  stage: validate
+
+validate:
+  stage: validate
+  image: node:22-alpine
+  variables:
+    npm_config_cache: "$CI_PROJECT_DIR/.npm"
+  script:
+    - npm ci --prefix src --no-audit --no-fund
+    - npm test --prefix src
+    - npm audit --prefix src --audit-level=high
+    - 'node -e "if (!/^(feat|fix|docs|test|chore|refactor|perf|build|ci)(\\([a-z0-9-]+\\))?!?: .+/.test(process.env.CI_COMMIT_TITLE)) process.exit(1)"'
+  cache:
+    key:
+      files: [src/package-lock.json]
+    paths: [.npm/]
+
+publish-development-image:
+  stage: publish
+  image:
+    name: moby/buildkit:rootless
+    entrypoint: [""]
+  variables:
+    BUILDKITD_FLAGS: "--oci-worker-no-process-sandbox"
+  before_script:
+    - mkdir -p "$HOME/.docker"
+    - 'REGISTRY_AUTH="$(printf "%s:%s" "$CI_REGISTRY_USER" "$CI_REGISTRY_PASSWORD" | base64 | tr -d "\n")"'
+    - 'printf ''{"auths":{"%s":{"auth":"%s"}}}'' "$CI_REGISTRY" "$REGISTRY_AUTH" > "$HOME/.docker/config.json"'
+  script:
+    - 'buildctl-daemonless.sh build --frontend dockerfile.v0 --local context=. --local dockerfile=. --opt filename=Dockerfile.demo --output type=image,name="$CI_REGISTRY_IMAGE:build-dev-$CI_COMMIT_SHA",push=true'
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+
+scan-development-image:
+  stage: inspect
+  image:
+    name: aquasec/trivy:0.74.0
+    entrypoint: [""]
+  needs: [publish-development-image]
+  variables:
+    TRIVY_USERNAME: "$CI_REGISTRY_USER"
+    TRIVY_PASSWORD: "$CI_REGISTRY_PASSWORD"
+  script:
+    - 'trivy image --image-src remote --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 "$CI_REGISTRY_IMAGE:build-dev-$CI_COMMIT_SHA"'
+    - 'trivy image --image-src remote --scanners secret --exit-code 1 "$CI_REGISTRY_IMAGE:build-dev-$CI_COMMIT_SHA"'
+    - 'trivy image --image-src remote --format cyclonedx --output image-sbom.cdx.json "$CI_REGISTRY_IMAGE:build-dev-$CI_COMMIT_SHA"'
+  artifacts:
+    when: always
+    access: maintainer
+    expire_in: 7 days
+    paths: [image-sbom.cdx.json]
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+
+tag-development-image:
+  stage: tag
+  image:
+    name: gcr.io/go-containerregistry/crane/debug:v0.22.1
+    entrypoint: [""]
+  needs: [scan-development-image]
+  before_script:
+    - 'printf "%s" "$CI_REGISTRY_PASSWORD" | crane auth login --password-stdin -u "$CI_REGISTRY_USER" "$CI_REGISTRY"'
+  script:
+    - 'DEV_IMAGE_TAG="dev-$(printf "%s" "$CI_COMMIT_SHA" | cut -c1-12)"'
+    - 'SOURCE_DIGEST="$(crane digest "$CI_REGISTRY_IMAGE:build-dev-$CI_COMMIT_SHA")"'
+    - |
+      if EXISTING_DIGEST="$(crane digest "$CI_REGISTRY_IMAGE:$DEV_IMAGE_TAG" 2>/dev/null)"; then
+        test "$EXISTING_DIGEST" = "$SOURCE_DIGEST"
+      else
+        crane tag "$CI_REGISTRY_IMAGE:build-dev-$CI_COMMIT_SHA" "$DEV_IMAGE_TAG"
+      fi
+    - 'test "$(crane digest "$CI_REGISTRY_IMAGE:$DEV_IMAGE_TAG")" = "$SOURCE_DIGEST"'
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+
+resolve-main-image:
+  stage: publish
+  image:
+    name: gcr.io/go-containerregistry/crane/debug:v0.22.1
+    entrypoint: [""]
+  before_script:
+    - 'printf "%s" "$CI_REGISTRY_PASSWORD" | crane auth login --password-stdin -u "$CI_REGISTRY_USER" "$CI_REGISTRY"'
+  script:
+    - 'DEV_IMAGE_TAG="dev-$(printf "%s" "$CI_COMMIT_SHA" | cut -c1-12)"'
+    - |
+      if SOURCE_DIGEST="$(crane digest "$CI_REGISTRY_IMAGE:$DEV_IMAGE_TAG" 2>/dev/null)"; then
+        crane tag "$CI_REGISTRY_IMAGE:$DEV_IMAGE_TAG" "$CI_COMMIT_SHA"
+        test "$(crane digest "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA")" = "$SOURCE_DIGEST"
+        printf 'REUSE_DEVELOPMENT_IMAGE=true\nSOURCE_IMAGE_DIGEST=%s\n' "$SOURCE_DIGEST" > main-image.env
+      else
+        printf 'REUSE_DEVELOPMENT_IMAGE=false\nSOURCE_IMAGE_DIGEST=\n' > main-image.env
+      fi
+  artifacts:
+    access: maintainer
+    expire_in: 7 days
+    reports:
+      dotenv: main-image.env
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+publish-main-image:
+  stage: publish
+  image:
+    name: moby/buildkit:rootless
+    entrypoint: [""]
+  needs:
+    - job: resolve-main-image
+      artifacts: true
+  variables:
+    BUILDKITD_FLAGS: "--oci-worker-no-process-sandbox"
+  before_script:
+    - mkdir -p "$HOME/.docker"
+    - 'REGISTRY_AUTH="$(printf "%s:%s" "$CI_REGISTRY_USER" "$CI_REGISTRY_PASSWORD" | base64 | tr -d "\n")"'
+    - 'printf ''{"auths":{"%s":{"auth":"%s"}}}'' "$CI_REGISTRY" "$REGISTRY_AUTH" > "$HOME/.docker/config.json"'
+  script:
+    - 'if [ "$REUSE_DEVELOPMENT_IMAGE" = true ]; then echo "Reusing the scanned development image."; exit 0; fi'
+    - 'buildctl-daemonless.sh build --frontend dockerfile.v0 --local context=. --local dockerfile=. --opt filename=Dockerfile.demo --output type=image,name="$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA",push=true'
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+scan-main-image:
+  stage: inspect
+  image:
+    name: aquasec/trivy:0.74.0
+    entrypoint: [""]
+  needs:
+    - job: resolve-main-image
+      artifacts: true
+    - job: publish-main-image
+      artifacts: false
+  variables:
+    TRIVY_USERNAME: "$CI_REGISTRY_USER"
+    TRIVY_PASSWORD: "$CI_REGISTRY_PASSWORD"
+  script:
+    - 'trivy image --image-src remote --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA"'
+    - 'trivy image --image-src remote --scanners secret --exit-code 1 "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA"'
+    - 'trivy image --image-src remote --format cyclonedx --output image-sbom.cdx.json "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA"'
+  artifacts:
+    when: always
+    access: maintainer
+    expire_in: 7 days
+    paths: [image-sbom.cdx.json]
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+release-main:
+  stage: release
+  image: node:22-alpine
+  needs: [scan-main-image]
+  variables:
+    GIT_DEPTH: "0"
+    GIT_AUTHOR_NAME: febef.dev
+    GIT_AUTHOR_EMAIL: febef.dev@gmail.com
+    GIT_COMMITTER_NAME: febef.dev
+    GIT_COMMITTER_EMAIL: febef.dev@gmail.com
+  script:
+    - npm ci --no-audit --no-fund
+    - node scripts/release-main.mjs
+  artifacts:
+    access: maintainer
+    expire_in: 7 days
+    reports:
+      dotenv: release.env
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+tag-release-image:
+  stage: tag
+  image:
+    name: gcr.io/go-containerregistry/crane/debug:v0.22.1
+    entrypoint: [""]
+  needs:
+    - job: release-main
+      artifacts: true
+  before_script:
+    - 'printf "%s" "$CI_REGISTRY_PASSWORD" | crane auth login --password-stdin -u "$CI_REGISTRY_USER" "$CI_REGISTRY"'
+  script:
+    - 'if [ -z "$RELEASE_TAG" ]; then echo "No semantic release."; exit 0; fi'
+    - 'SOURCE_DIGEST="$(crane digest "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA")"'
+    - |
+      if EXISTING_DIGEST="$(crane digest "$CI_REGISTRY_IMAGE:$RELEASE_TAG" 2>/dev/null)"; then
+        test "$EXISTING_DIGEST" = "$SOURCE_DIGEST"
+      else
+        crane tag "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA" "$RELEASE_TAG"
+      fi
+    - 'test "$(crane digest "$CI_REGISTRY_IMAGE:$RELEASE_TAG")" = "$SOURCE_DIGEST"'
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'

@@ -5,8 +5,6 @@ header
     h2.pageTitle= pageTitle
 
   if (user)
-    if demoReadOnly
-      p.demoNotice Demo de solo lectura · datos ficticios y temporales
     nav.menu
       span <
       ul
@@ -27,4 +25,6 @@ header
         span /
         span= user.credentialName
       span |
-      a.logout(href="/logout") logout
+      form(action='/logout' method='post')
+        input(type='hidden' name='csrfToken' value=csrfToken)
+        button.logout(type='submit') logout

@@ -1,5 +1,54 @@
 # Local-only demo, deliberately separate from the historical docker-compose.yml.
 services:
+  demo-ca:
+    image: idpam-demo-ca:local
+    volumes:
+      - ldap-certs:/certs
+      - ldap-ca:/ca
+    networks: [demo]
+
+  ldap:
+    image: osixia/openldap:2.6.10-alpha
+    hostname: ldap
+    depends_on:
+      demo-ca:
+        condition: service_completed_successfully
+    environment:
+      OPENLDAP_BOOTSTRAP_ORGANIZATION: IdPAM Demo
+      OPENLDAP_BOOTSTRAP_SUFFIX: dc=idpam,dc=test
+      OPENLDAP_BOOTSTRAP_DATA_READONLY: "true"
+      OPENLDAP_BOOTSTRAP_DATA_READONLY_PASSWORD_HASHED: "{SSHA}TIagLlS364T/u4Eb3UpbVVtBzARPAJJ0"
+      OPENLDAP_BOOTSTRAP_TLS: "true"
+      OPENLDAP_BOOTSTRAP_TLS_REQUIRED: "true"
+      OPENLDAP_BOOTSTRAP_TLS_CERT: /container/services/openldap/assets/certs/tls.crt
+      OPENLDAP_BOOTSTRAP_TLS_CERT_KEY: /container/services/openldap/assets/certs/tls.key
+      OPENLDAP_BOOTSTRAP_TLS_CA_CERT: /container/services/openldap/assets/certs/ca.crt
+      OPENLDAP_URLS: "ldaps://:6360 ldapi:///"
+    volumes:
+      - ldap-certs:/container/services/openldap/assets/certs:ro
+      - ./demo/ldap/01-people.ldif:/container/services/openldap-bootstrap/assets/ldif/data/custom/90-people.ldif:ro
+    tmpfs:
+      - /var/lib/openldap/openldap-data:size=67108864,mode=0700,uid=911,gid=911
+      - /etc/openldap/slapd.d:size=16777216,mode=0700,uid=911,gid=911
+    networks: [demo]
+
+  dex:
+    image: ghcr.io/dexidp/dex:v2.45.1
+    command: ["dex", "serve", "/etc/dex/config.yaml"]
+    depends_on:
+      ldap:
+        condition: service_started
+    environment:
+      DEX_CONTINUE_ON_CONNECTOR_FAILURE: "false"
+    volumes:
+      - ./demo/dex/config.yaml:/etc/dex/config.yaml:ro
+      - ldap-ca:/etc/dex/ldap-ca:ro
+    tmpfs:
+      - /var/dex:size=33554432,mode=0700,uid=1001,gid=1001
+    ports:
+      - "127.0.0.1:5556:5556"
+    networks: [demo, frontend]
+
   mongo:
     image: mongo:7.0
     command: ["mongod", "--bind_ip_all", "--quiet"]
@@ -31,3 +80,7 @@ networks:
   demo:
     internal: true
   frontend: {}
+
+volumes:
+  ldap-certs: {}
+  ldap-ca: {}

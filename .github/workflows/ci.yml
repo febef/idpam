@@ -1,0 +1,24 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: src/package-lock.json
+      - run: npm ci --prefix src --no-audit --no-fund
+      - run: npm test --prefix src
+      - run: npm audit --prefix src --audit-level=high
+      - run: docker build --file Dockerfile.demo --tag idpam:verify .

@@ -4,15 +4,18 @@ html(lang="en")
     meta(charset="UTF-8")
     meta(http-equiv="X-UA-Compatible", content="IE=edge")
     meta(name="viewport", content="width=device-width, initial-scale=1.0")
+    if csrfToken
+      meta(name='csrf-token' content=csrfToken)
     link(rel="shortcut icon", href="/assets/images/favicon.png", type="image/x-icon")
     title= `IdPAM - ${pageTitle}`
     link(rel="stylesheet", href=`/assets/styles/${theme}/base.css`)
-    link(rel="stylesheet", href=`/assets/styles/${theme}/${pageTitle}.css`)
+    link(rel="stylesheet", href=`/assets/styles/${theme}/${pageTitle === 'identities' || pageTitle === 'Token emitido' ? 'home' : pageTitle}.css`)
 
-  body(class=demoReadOnly ? 'demo-readonly' : '')
+  body
 
     include ../partials/header.pug
     block main
     include ../partials/squares.pug
     include ../partials/footer.pug
-    script(src=`/assets/scripts/${pageTitle}/app.js`)
+    if user
+      script(src='/assets/scripts/management.js')

@@ -14,13 +14,14 @@ const idpam = new IdPAM(configs);
 
 idpam.db.ready
   .then(async () => {
-    await resetAndSeedDemo(idpam.db.models, configs.database.uri, intervalSeconds, demoPassword);
+    idpam.demoAdminCredentialId = await resetAndSeedDemo(idpam.db.models, configs.database.uri, intervalSeconds, demoPassword);
     idpam.serve();
 
     setInterval(async () => {
       idpam.demoResetting = true;
       try {
-        await resetAndSeedDemo(idpam.db.models, configs.database.uri, intervalSeconds, demoPassword);
+        idpam.demoAdminCredentialId = null;
+        idpam.demoAdminCredentialId = await resetAndSeedDemo(idpam.db.models, configs.database.uri, intervalSeconds, demoPassword);
         await new Promise((resolve, reject) =>
           idpam.wAdmin.sessionStore.clear(error => error ? reject(error) : resolve())
         );

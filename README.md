@@ -1,13 +1,23 @@
-# IdPAM — demo local en preparación
+# IdPAM — prueba de concepto recuperada
 
-IdPAM es un prototipo histórico de identidad y permisos. El tag local `legacy`
-conserva el estado anterior; la evolución ocurre en `evolucion/demo-preparation`.
-El contrato verificable y sus límites están en [docs/demo-contract.md](docs/demo-contract.md).
+IdPAM (Identity Provider and Access Manager) es un prototipo histórico de
+identidad, credenciales y permisos granulares. Se publica como prueba de
+concepto y material de estudio, no como producto terminado ni como solución
+recomendada para producción.
+
+El contrato verificable y sus límites están en [docs/demo-contract.md](docs/demo-contract.md);
+el [inventario funcional](docs/functionality-audit.md) separa lo comprobado de
+las funciones históricas aún no habilitadas.
+La [guía de la demo local](docs/local-demo-guide.md) propone un recorrido
+reproducible sin añadir tutoriales a la interfaz original.
 
 ## Ejecutar en este equipo
 
 Requiere Docker Desktop. El script de build crea un contexto temporal porque el
 respaldo montado contiene metadatos macOS que Docker no puede leer directamente.
+Levanta IdPAM, MongoDB temporal, OpenLDAP de prueba y Dex en la misma red de
+Compose. Mongo y LDAP no publican puertos; IdPAM y Dex sólo escuchan en
+`127.0.0.1` del equipo.
 
 ```bash
 bash scripts/build-demo.sh
@@ -16,18 +26,51 @@ docker compose -f compose.demo.yaml up -d
 
 Abrir [http://127.0.0.1:3000/login](http://127.0.0.1:3000/login) con la cuenta
 ficticia `demo` y la clave pública de laboratorio `demo-idpam-only-2026`.
-La cuenta sólo tiene permiso de lectura sobre identidades de ejemplo; no usar
-esa clave ni esa base para ningún dato real. La app sólo publica localhost y
-Mongo no publica puertos al host.
+La cuenta de laboratorio tiene rutas explícitas con sesión y CSRF para
+administrar identidades, roles, permisos y credenciales ficticias. Se restauró
+la interfaz Jade original a pedido del autor y se conectaron sus controles a
+esas rutas mediante formularios de aspecto coherente con la UI histórica.
+La creación abre un cuadro flotante. En identidades y roles, un clic en un
+valor simple permite editarlo sobre el texto: **Enter** guarda, **Escape**
+cancela y perder el foco descarta el cambio. En Inicio, la edición y las altas
+se hacen sobre la misma página; los cambios compuestos de credenciales usan
+los cuadros flotantes originales. La emisión de token muestra el valor una
+sola vez en un cuadro de Inicio. Todos los guardados pasan por rutas
+explícitas y CSRF.
+La credencial de acceso inicial está protegida contra cambios y borrado; las
+demás credenciales son descartables. La API genérica histórica responde 410 y
+no debe reactivarse sin revisión.
+El login admite contraseña, token temporal y prueba de posesión de clave SSH Ed25519.
+Para probar esta última sin enviar la clave privada al servidor:
+
+```bash
+node scripts/ssh-demo.mjs generate /private/tmp/idpam-demo-key.pem
+# Registrar la clave pública mediante la ruta de gestión; copiar su ID.
+# En /login generar un desafío para ese ID y copiar el campo message.
+node scripts/ssh-demo.mjs sign /private/tmp/idpam-demo-key.pem 'idpam-demo-ssh-v1:DESAFIO'
+# Pegar la firma Base64 en /login con el mismo ID.
+```
+
+La clave privada se crea sólo en la ruta elegida, con modo 0600, y el helper no
+sobrescribe archivos. Eliminá ese archivo cuando termines. No usar esta clave ni la
+base para ningún dato real. La app sólo publica localhost y Mongo no publica
+puertos al host.
 
 El reset ocurre cada hora por defecto; cambiarlo temporalmente con
 `RESET_INTERVAL_SECONDS=600 docker compose -f compose.demo.yaml up -d
 --force-recreate app`. Se aceptan intervalos enteros de 60 a 86400 segundos.
 Un reset reemplaza los datos de demo e invalida sesiones activas.
+Las cuentas LDAP ficticias de Dex son `ada`/`ada-demo-only-2026` y
+`grace`/`grace-demo-only-2026`; se autentican por LDAPS con una CA efímera.
+El directorio y el almacenamiento de Dex viven en volúmenes temporales del
+contenedor. No conectan el Keycloak ni un LDAP real. Dex se abre sólo en
+`http://127.0.0.1:5556/dex` para esta prueba local; en Internet el issuer,
+TLS y cliente OIDC deberán configurarse explícitamente para el hostname final.
 
 ```bash
 cd src && npm test
-docker compose -f ../compose.demo.yaml down
+cd .. && RUN_HTTP_TEST=1 node --test test/demo-http.test.mjs
+docker compose -f compose.demo.yaml down
 ```
 
 `down` detiene y elimina sólo los contenedores y redes de esta demo. La base
@@ -35,10 +78,22 @@ vive en tmpfs y se pierde al retirar su contenedor.
 
 ## Estado de publicación
 
-Esta es una demo **local**, no una versión segura para Internet. Antes de abrir
-el repositorio o publicar una URL faltan la revisión del historial y secretos,
-la auditoría de funciones y mutaciones de la API, protección CSRF, sesiones
-compartidas y una pasada de pruebas/UI. No crear mirrors públicos ni mover
-remotos hasta cerrar esas puertas. El remoto GitHub configurado apunta a
-`febef/IdpAm`, pero su accesibilidad y visibilidad no se confirmaron desde
-esta sesión; GitLab aún no está configurado como remoto.
+IdPAM se publica como **PoC recuperada**, no como producto terminado ni como
+versión recomendada para producción. El código propio usa Apache-2.0; el archivo
+`NOTICE` identifica la tipografía Montserrat y `src/package-lock.json` conserva
+las versiones de las dependencias con sus licencias correspondientes.
+
+La historia pública se reconstruye desde hitos verificables con sus fechas
+originales, excluyendo secretos, datos reales y la copia antigua de dependencias
+que vivía en `src/node_modules-bkp/`. El tag privado `legacy` y el repositorio
+histórico se conservan como respaldo, pero no forman parte de los mirrors
+públicos. GitHub y GitLab deben representar el mismo árbol e historia saneados.
+
+La demo actual sigue siendo **local**. LDAP y OIDC funcionan con datos de
+prueba, pero el contenedor OpenLDAP utilizado es `2.6.10-alpha`: no se promoverá
+a Internet sin sustituirlo por una versión estable, fijar imágenes por digest y
+revisar certificados, sesiones, aislamiento entre visitantes, rate limiting,
+accesibilidad y todas las mutaciones de la API. El formulario de gestión tiene
+CSRF y la API genérica histórica está cerrada, pero eso no certifica toda la
+aplicación. Los manifiestos de despliegue público y su pipeline de seguridad son
+un gate separado de la publicación del código fuente.

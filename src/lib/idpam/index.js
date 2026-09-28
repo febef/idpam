@@ -20,34 +20,6 @@ export default class IdPAM extends eServer {
     this.am = new AM(am, this);
     this.api = new API(this);
     if (wadmin) this.wAdmin = new wAdmin(this, wadmin);
-
-
-    /* /
-    let permission = this.am.createPermission({
-      name: 'sadmin',
-      targetObjects: '*',
-      verbs: ['read', 'edit', 'append', 'delete', 'execute', 'create']
-    });
-
-    let role = this.am.createRol('admin', [ObjectId(permission._id)]);
-
-    let id = this.idp.CreateIdentity({
-      credentials: {
-        simplecredentials: [{
-          name: "main",
-          userfacade: "febef",
-          password: "[removed from public history]",
-          enabled: true,
-          expiration: 0,
-          roles: [ObjectId(role._id)]
-        }]
-      },
-      metadatas: {
-        nickName: "febef"
-      }
-    });
-
-    /**/
   }
 }
 
@@ -83,5 +55,4 @@ IdPAM.prototype.getCredential = async function(id) {
   }
   return null;
 };
-
 

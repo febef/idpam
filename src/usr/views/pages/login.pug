@@ -1,11 +1,33 @@
-
 extends ../layouts/main.pug
 
 block main
-  section.main
-    form.form(verb="/login" method="POST")
-     h1 Welcome
-     input(type="text" placeholder="uf" name="userfacade")
-     input(type="password" placeholder="key", name="password")
-     button(type="submit" id="login-button") Login
-     a(href="#") or login with other method
+  section.main.loginStage
+    form.form(action='/login' method='post')
+      h1 Welcome
+      input(type='text' placeholder='uf' name='userfacade' autocomplete='username' aria-label='Usuario' required)
+      input(type='password' placeholder='key' name='password' autocomplete='current-password' aria-label='Contraseña' required)
+      button(type='submit' id='login-button') Login
+      if demoHint
+        p.loginHint Usuario demo · clave demo-idpam-only-2026
+      a(href='#other-methods') or login with other method
+
+    details#other-methods.otherMethods
+      summary Other methods
+      .methodList
+        section.method
+          h2 Token
+          form(action='/login' method='post')
+            input(type='password' name='token' placeholder='token' autocomplete='off' aria-label='Token temporal' required)
+            button(type='submit') Login with token
+        section.method
+          h2 SSH Ed25519
+          form(action='/login/ssh/challenge' method='post')
+            input(type='text' name='credentialId' placeholder='credential id' aria-label='ID de credencial SSH' pattern='[a-fA-F0-9]{24}' required)
+            button(type='submit') Create challenge
+          form(action='/login/ssh/verify' method='post')
+            input(type='text' name='credentialId' placeholder='credential id' aria-label='ID de credencial SSH' pattern='[a-fA-F0-9]{24}' required)
+            input(type='text' name='signature' placeholder='base64 signature' aria-label='Firma Base64' required)
+            button(type='submit') Verify signature
+        section.method
+          h2 LDAP / OIDC
+          a.oidcLink(href='/oidc/login') Login with Dex

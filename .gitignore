@@ -39,7 +39,12 @@ build/Release
 
 # Dependency directories
 node_modules/
+src/node_modules-bkp/
 jspm_packages/
+
+# macOS AppleDouble metadata from NAS-backed workspaces
+._*
+**/._*
 
 # TypeScript v1 declaration files
 typings/

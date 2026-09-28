@@ -1,0 +1,8 @@
+IdPAM
+Copyright 2021-2026 Facundo Beltramo
+
+This product includes the Montserrat typeface. Its license is included at
+src/usr/assets/fonts/OFL.txt.
+
+Third-party packages retain their own copyright notices and licenses. Their
+resolved versions are recorded in src/package-lock.json.

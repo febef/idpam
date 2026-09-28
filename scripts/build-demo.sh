@@ -17,3 +17,5 @@ rsync -a \
 
 docker build -t idpam-demo:local \
   -f "$demo_context/Dockerfile.demo" "$demo_context"
+docker build -t idpam-demo-ca:local \
+  -f "$demo_context/Dockerfile.demo-ca" "$demo_context"

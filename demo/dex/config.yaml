@@ -1,0 +1,31 @@
+issuer: http://127.0.0.1:5556/dex
+storage:
+  type: sqlite3
+  config:
+    file: /var/dex/dex.db
+web:
+  http: 0.0.0.0:5556
+oauth2:
+  skipApprovalScreen: true
+staticClients:
+  - id: idpam-demo
+    name: IdPAM local lab
+    public: true
+    redirectURIs:
+      - http://127.0.0.1:3000/oidc/callback
+connectors:
+  - type: ldap
+    id: local-ldap
+    name: LDAP ficticio
+    config:
+      host: ldap:6360
+      rootCA: /etc/dex/ldap-ca/ca.crt
+      bindDN: cn=readonly,dc=idpam,dc=test
+      bindPW: idpam-readonly-demo-2026
+      userSearch:
+        baseDN: ou=people,dc=idpam,dc=test
+        filter: (objectClass=inetOrgPerson)
+        username: uid
+        idAttr: uid
+        emailAttr: mail
+        nameAttr: cn

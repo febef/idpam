@@ -1,0 +1,21 @@
+dn: ou=people,dc=idpam,dc=test
+objectClass: organizationalUnit
+ou: people
+
+dn: uid=ada,ou=people,dc=idpam,dc=test
+objectClass: inetOrgPerson
+uid: ada
+cn: Ada Demo
+sn: Demo
+givenName: Ada
+mail: ada@idpam.test
+userPassword: ada-demo-only-2026
+
+dn: uid=grace,ou=people,dc=idpam,dc=test
+objectClass: inetOrgPerson
+uid: grace
+cn: Grace Demo
+sn: Demo
+givenName: Grace
+mail: grace@idpam.test
+userPassword: grace-demo-only-2026

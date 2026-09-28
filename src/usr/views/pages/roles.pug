@@ -1,17 +1,95 @@
-
 extends ../layouts/main.pug
-include ../mixin/home.pug
-include ../mixin/editableobject.pug
 
 block main
-
   section.main
-    header Roles
-    
-    for rol, k in list
-      +credentialTypeSection(rol.name, rol)
-        +permissionsTable(permission, 'permission', '')
+    header.legacySectionTitle
+      h3 Roles
+      button.min-info(type='button' data-open='create-role') (+)
 
+    each role in list
+      section.box.m-1.roleEntry(data-role-id=role._id)
+        header.boxTitle.typeCredential
+          h4.min-info type:
+            b.typeName= role.name
+          button.min-info(type='button' data-open=`create-permission-${role._id}`) (+)
+        fieldset
+          span.min-info name:
+            span.verb(data-inline-field='name' data-inline-form=`edit-role-${role._id}` tabindex='0' role='button' aria-label='Editar nombre del rol')= role.name
+        h4.min-info permissions:
+        each permission in role.permissions
+          article.box.permissionEntry
+            fieldset
+              span.min-info targetObjects:
+                span.verb(data-inline-field='targets' data-inline-form=`edit-permission-${permission._id}` tabindex='0' role='button' aria-label='Editar objetos del permiso')= permission.targetObjects.join(', ')
+            fieldset
+              span.min-info verbs:
+                span.verb(data-inline-field='verbs' data-inline-form=`edit-permission-${permission._id}` tabindex='0' role='button' aria-label='Editar acciones del permiso')= permission.verbs.join(', ')
+            fieldset.flex-rigth
+              button.min-info(type='button' data-delete=`/roles/${role._id}/permissions/${permission._id}/delete`) (delete)
+        else
+          span.min-info no hay permisos
         fieldset.flex-rigth
-          button.min-info(data-verb='delete') (delete)
-          //`credential.${credentialType}`)
+          button.min-info(type='button' data-delete=`/roles/${role._id}/delete`) (delete)
+
+      dialog.dialog(id=`edit-role-${role._id}`)
+        header.boxTitle
+          h3 Edit role
+          button.btn.close(type='button' data-close aria-label='Cerrar') x
+        form(action=`/roles/${role._id}` method='post')
+          input(type='hidden' name='csrfToken' value=csrfToken)
+          label name
+            input(name='name' value=role.name required minlength='2' maxlength='60')
+          button(type='submit') save
+
+      dialog.dialog(id=`create-permission-${role._id}`)
+        header.boxTitle
+          h3 Create permission
+          button.btn.close(type='button' data-close aria-label='Cerrar') x
+        form(action=`/roles/${role._id}/permissions` method='post')
+          input(type='hidden' name='csrfToken' value=csrfToken)
+          label targetObjects (comma-separated)
+            input(name='targets' required placeholder='identity:*')
+          label verbs (comma-separated)
+            input(name='verbs' required placeholder='read')
+          button(type='submit') create
+
+      each permission in role.permissions
+        dialog.dialog(id=`edit-permission-${permission._id}`)
+          header.boxTitle
+            h3 Edit permission
+            button.btn.close(type='button' data-close aria-label='Cerrar') x
+          form(action=`/permissions/${permission._id}` method='post')
+            input(type='hidden' name='csrfToken' value=csrfToken)
+            label targetObjects
+              input(name='targets' value=permission.targetObjects.join(', ') required)
+            label verbs
+              input(name='verbs' value=permission.verbs.join(', ') required)
+            button(type='submit') save
+
+    dialog.dialog#create-role
+      header.boxTitle
+        h3 Create role
+        button.btn.close(type='button' data-close aria-label='Cerrar') x
+      form(action='/roles' method='post')
+        input(type='hidden' name='csrfToken' value=csrfToken)
+        label name
+          input(name='name' required minlength='2' maxlength='60')
+        button(type='submit') create
+
+    section.box.m-1.accessCheck
+      header.boxTitle
+        h4.min-info check access
+      form#access-check(action='/access/check' method='post')
+        input(type='hidden' name='csrfToken' value=csrfToken)
+        label role
+          select(name='roleId' required)
+            each role in list
+              option(value=role._id)= role.name
+        label verb
+          select(name='verb' required)
+            each verb in ['read', 'create', 'edit', 'append', 'delete', 'execute']
+              option(value=verb)= verb
+        label target
+          input(name='target' placeholder='identity:example' required maxlength='120')
+        button(type='submit') check
+      output#access-result

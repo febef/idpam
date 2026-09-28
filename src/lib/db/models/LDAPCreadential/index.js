@@ -1,9 +1,10 @@
 import mongoose from 'mongoose'
 
 const LDAPCredentialSchema = new mongoose.Schema({
-  cn: [{ type: String }],
-  password: [{ type: String }],
+  issuer: { type: String, required: true },
+  email: { type: String, required: true, lowercase: true },
   name: { type: String},
+  enabled: { type: Boolean, default: true },
   roles: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Role' }]
 });
 
@@ -16,7 +17,7 @@ LDAPCredentialSchema.statics.configure = function(configs) {
 };
 
 LDAPCredentialSchema.statics.authenticate = function(authData) {
-  return true;
+  return null; // Dex validates LDAP credentials; no direct password is accepted here.
 };
 
 

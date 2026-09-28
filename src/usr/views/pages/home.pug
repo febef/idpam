@@ -5,7 +5,7 @@ include ../mixin/editableobject.pug
 
 block main
 
-  section.main
+  section.main(data-identity-id=id._id)
 
     section.user.m-1
       +user(user)
@@ -38,3 +38,79 @@ block main
                 //`credential.${credentialType}`)
             else
               span.min-info no hay credenciales
+
+    if demoReadOnly
+      form#home-profile-form(action=`/demo/identities/${id._id}/profile` method='post' hidden)
+        input(type='hidden' name='csrfToken' value=csrfToken)
+        input(name='nickName' value=id.metadatas.nickName || '' required maxlength='60')
+        input(name='names' value=(id.metadatas.names || [])[0] || '' maxlength='60')
+        input(name='lastNames' value=(id.metadatas.lastNames || [])[0] || '' maxlength='60')
+        input(name='email' type='email' value=id.metadatas.email || '' maxlength='120')
+
+      dialog.dialog#home-add-simplecredentials
+        header.boxTitle
+          h3 Create simple credential
+          button.btn.close(type='button' data-close aria-label='Cerrar') x
+        form(action=`/identities/${id._id}/credentials/simple` method='post' data-home-submit='simple')
+          input(type='hidden' name='csrfToken' value=csrfToken)
+          label name
+            input(name='name' required minlength='2' maxlength='60')
+          label userfacade
+            input(name='userfacade' required pattern='[A-Za-z0-9._-]{3,40}')
+          label password
+            input(name='password' type='password' required minlength='12' autocomplete='new-password')
+          label
+            input(type='checkbox' name='enabled' checked)
+            | enabled
+          fieldset
+            legend roles
+            each role in roleList
+              label
+                input(type='checkbox' name='roleIds' value=role._id)
+                = role.name
+          button(type='submit') create
+
+      dialog.dialog#home-add-tokencredentials
+        header.boxTitle
+          h3 Create token
+          button.btn.close(type='button' data-close aria-label='Cerrar') x
+        form(action=`/identities/${id._id}/credentials/token` method='post' data-home-submit='token')
+          input(type='hidden' name='csrfToken' value=csrfToken)
+          label name
+            input(name='name' required minlength='2' maxlength='60')
+          label hours
+            input(name='hours' type='number' min='1' max='24' value='1' required)
+          fieldset
+            legend roles
+            each role in roleList
+              label
+                input(type='checkbox' name='roleIds' value=role._id)
+                = role.name
+          button(type='submit') create
+
+      dialog.dialog#home-add-sshkeycredentials
+        header.boxTitle
+          h3 Register SSH key
+          button.btn.close(type='button' data-close aria-label='Cerrar') x
+        form(action=`/identities/${id._id}/credentials/ssh` method='post' data-home-submit='ssh')
+          input(type='hidden' name='csrfToken' value=csrfToken)
+          label name
+            input(name='name' required minlength='2' maxlength='60')
+          label ssh-ed25519 public key
+            textarea(name='publicKey' rows='3' required maxlength='1024')
+          fieldset
+            legend roles
+            each role in roleList
+              label
+                input(type='checkbox' name='roleIds' value=role._id)
+                = role.name
+          button(type='submit') create
+
+      dialog.dialog#home-token-issued
+        header.boxTitle
+          h3 Token emitido
+          button.btn.close(type='button' data-close aria-label='Cerrar') x
+        article.box.tokenReceipt
+          p Guardá este token ahora. Se muestra una sola vez.
+          pre: code#home-token-value
+          p#home-token-expires

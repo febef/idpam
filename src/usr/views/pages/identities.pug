@@ -1,40 +1,176 @@
-
 extends ../layouts/main.pug
-include ../mixin/home.pug
-include ../mixin/editableobject.pug
 
 block main
-
   section.main
+    header.legacySectionTitle
+      h3 Identities
+      button.min-info(type='button' data-open='create-identity') (+)
 
-    section.user.m-1
-      +user(user)
+    each identity in list
+      - const meta = identity.metadatas || {}
+      - const groups = identity.credentials || {}
+      - const isCurrent = String(identity._id) === String(user.identityId)
+      section.box.m-1.identityEntry(data-identity-id=identity._id)
+        header.boxTitle
+          h3= `${meta.nickName || 'Sin nombre'}@${identity.domain}`
+        h4.min-info metadata
+        each key in ['nickName', 'names', 'lastNames', 'email']
+          fieldset
+            span.min-info= `${key}: `
+              span.verb(data-inline-field=key data-inline-form=`profile-${identity._id}` tabindex='0' role='button' aria-label=`Editar ${key}`)= Array.isArray(meta[key]) ? meta[key].join(', ') || 'ø' : meta[key] || 'ø'
 
-    section.box.m-1(data-target=`metadata:${id.metadatas.id}`)
+        each credentials, kind in groups
+          section.box.credentialGroup(data-kind=kind)
+            header.boxTitle.typeCredential
+              h4.min-info type:
+                b.typeName= kind
+              if kind !== 'ldapcredentials'
+                button.min-info(type='button' data-open=`add-${kind}-${identity._id}`) (+)
+            .box.filter
+              fieldset
+                small
+                  label(for=`filter-${kind}-${identity._id}`) filter:
+                input.min-info(id=`filter-${kind}-${identity._id}` type='search' data-filter)
+            .scroll-container
+              each credential in credentials
+                article.box.credentialEntry(data-credential-id=credential._id)
+                  fieldset
+                    span.min-info name:
+                      span.verb(data-inline-field=kind === 'simplecredentials' && !isCurrent ? 'name' : null data-inline-form=kind === 'simplecredentials' && !isCurrent ? `edit-simple-${credential._id}` : null tabindex=kind === 'simplecredentials' && !isCurrent ? '0' : null role=kind === 'simplecredentials' && !isCurrent ? 'button' : null aria-label=kind === 'simplecredentials' && !isCurrent ? 'Editar nombre de credencial' : null)= credential.name
+                  if credential.userfacade
+                    fieldset
+                      span.min-info= `userfacade: ${credential.userfacade}`
+                  fieldset
+                    span.min-info= `enabled: ${credential.enabled ? 'true' : 'false'}`
+                  if credential.expiresAt
+                    fieldset
+                      span.min-info= `expires: ${new Date(credential.expiresAt).toLocaleString('es-AR')}`
+                  if credential.roles && credential.roles.length
+                    fieldset
+                      span.min-info= `roles: [ ${credential.roles.map(role => role.name).join(', ')} ]`
+                  if kind !== 'ldapcredentials' && !isCurrent
+                    fieldset.flex-rigth
+                      button.min-info(type='button' data-delete=kind === 'simplecredentials' ? `/credentials/simple/${credential._id}/delete` : kind === 'tokencredentials' ? `/credentials/token/${credential._id}/delete` : `/credentials/ssh/${credential._id}/delete`) (delete)
+              else
+                span.min-info no hay credenciales
+
+        if !isCurrent
+          button.min-info(type='button' data-delete=`/identities/${identity._id}/delete`) (delete identity)
+
+      dialog.dialog(id=`profile-${identity._id}`)
+        header.boxTitle
+          h3 Edit metadata
+          button.btn.close(type='button' data-close aria-label='Cerrar') x
+        form(action=`/demo/identities/${identity._id}/profile` method='post')
+          input(type='hidden' name='csrfToken' value=csrfToken)
+          label nickName
+            input(name='nickName' value=meta.nickName || '' required maxlength='60')
+          label names
+            input(name='names' value=(meta.names || [])[0] || '' maxlength='60')
+          label lastNames
+            input(name='lastNames' value=(meta.lastNames || [])[0] || '' maxlength='60')
+          label email
+            input(name='email' type='email' value=meta.email || '' maxlength='120')
+          button(type='submit') save
+
+      dialog.dialog(id=`add-simplecredentials-${identity._id}`)
+        header.boxTitle
+          h3 Create simple credential
+          button.btn.close(type='button' data-close aria-label='Cerrar') x
+        form(action=`/identities/${identity._id}/credentials/simple` method='post')
+          input(type='hidden' name='csrfToken' value=csrfToken)
+          label name
+            input(name='name' required minlength='2' maxlength='60')
+          label userfacade
+            input(name='userfacade' required pattern='[A-Za-z0-9._-]{3,40}')
+          label password
+            input(name='password' type='password' required minlength='12' autocomplete='new-password')
+          label
+            input(type='checkbox' name='enabled' checked)
+            | enabled
+          fieldset
+            legend roles
+            each role in roleList
+              label
+                input(type='checkbox' name='roleIds' value=role._id)
+                = role.name
+          button(type='submit') create
+
+      dialog.dialog(id=`add-tokencredentials-${identity._id}`)
+        header.boxTitle
+          h3 Create token
+          button.btn.close(type='button' data-close aria-label='Cerrar') x
+        form(action=`/identities/${identity._id}/credentials/token` method='post')
+          input(type='hidden' name='csrfToken' value=csrfToken)
+          label name
+            input(name='name' required minlength='2' maxlength='60')
+          label hours
+            input(name='hours' type='number' min='1' max='24' value='1' required)
+          fieldset
+            legend roles
+            each role in roleList
+              label
+                input(type='checkbox' name='roleIds' value=role._id)
+                = role.name
+          button(type='submit') create
+
+      dialog.dialog(id=`add-sshkeycredentials-${identity._id}`)
+        header.boxTitle
+          h3 Register SSH key
+          button.btn.close(type='button' data-close aria-label='Cerrar') x
+        form(action=`/identities/${identity._id}/credentials/ssh` method='post')
+          input(type='hidden' name='csrfToken' value=csrfToken)
+          label name
+            input(name='name' required minlength='2' maxlength='60')
+          label ssh-ed25519 public key
+            textarea(name='publicKey' rows='3' required maxlength='1024')
+          fieldset
+            legend roles
+            each role in roleList
+              label
+                input(type='checkbox' name='roleIds' value=role._id)
+                = role.name
+          button(type='submit') create
+
+      each credential in groups.simplecredentials || []
+        if !isCurrent
+          dialog.dialog(id=`edit-simple-${credential._id}`)
+            header.boxTitle
+              h3 Edit simple credential
+              button.btn.close(type='button' data-close aria-label='Cerrar') x
+            form(action=`/credentials/simple/${credential._id}` method='post')
+              input(type='hidden' name='csrfToken' value=csrfToken)
+              label name
+                input(name='name' value=credential.name required minlength='2' maxlength='60')
+              label password (blank keeps current)
+                input(name='password' type='password' minlength='12' autocomplete='new-password')
+              label
+                input(type='checkbox' name='enabled' checked=credential.enabled)
+                | enabled
+              fieldset
+                legend roles
+                each role in roleList
+                  label
+                    input(type='checkbox' name='roleIds' value=role._id checked=(credential.roles || []).some(item => String(item._id) === String(role._id)))
+                    = role.name
+              button(type='submit') save
+
+    dialog.dialog#create-identity
       header.boxTitle
-        h3 metadata
-
-      +editableObject(id.metadatas, '', '')
-
-    section.credentials
-      header
-        h3 Credentials
-
-      for credentials, credentialType in id.credentials.toJSON()
-        +credentialTypeSection(credentialType, credentials[credentialType])
-          div.box.filter
-            fieldset
-              small
-                label 
-                  pre filter:
-              input.min-info(type='text')
-              //span &#128270;
-          .div.scroll-container
-            for credential, key in id.credentials[credentialType]
-              article.box(data-target=`${credentialType.split('').slice(0,-1).join('')}:${credential.id}`)
-                +editableObject(credential, '', '')
-                fieldset.flex-rigth
-                  button.min-info(data-verb='delete') (delete)
-                //`credential.${credentialType}`)
-            else
-              span.min-info no hay credenciales
+        h3 Create identity
+        button.btn.close(type='button' data-close aria-label='Cerrar') x
+      form(action='/identities' method='post')
+        input(type='hidden' name='csrfToken' value=csrfToken)
+        label type
+          select(name='type')
+            option(value='user') user
+            option(value='service') service
+        label nickName
+          input(name='nickName' required maxlength='60')
+        label names
+          input(name='names' maxlength='60')
+        label lastNames
+          input(name='lastNames' maxlength='60')
+        label email
+          input(name='email' type='email' maxlength='120')
+        button(type='submit') create
