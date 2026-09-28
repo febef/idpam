@@ -7,7 +7,6 @@ workflow:
     - if: '$CI_COMMIT_BRANCH == "main"'
 
 default:
-  tags: [gitlab-runner]
   interruptible: true
 
 include:
