@@ -8,32 +8,20 @@ services:
     networks: [demo]
 
   ldap:
-    image: osixia/openldap:2.6.10-alpha
+    image: idpam-demo-ldap:local
     hostname: ldap
     depends_on:
       demo-ca:
         condition: service_completed_successfully
-    environment:
-      OPENLDAP_BOOTSTRAP_ORGANIZATION: IdPAM Demo
-      OPENLDAP_BOOTSTRAP_SUFFIX: dc=idpam,dc=test
-      OPENLDAP_BOOTSTRAP_DATA_READONLY: "true"
-      OPENLDAP_BOOTSTRAP_DATA_READONLY_PASSWORD_HASHED: "{SSHA}TIagLlS364T/u4Eb3UpbVVtBzARPAJJ0"
-      OPENLDAP_BOOTSTRAP_TLS: "true"
-      OPENLDAP_BOOTSTRAP_TLS_REQUIRED: "true"
-      OPENLDAP_BOOTSTRAP_TLS_CERT: /container/services/openldap/assets/certs/tls.crt
-      OPENLDAP_BOOTSTRAP_TLS_CERT_KEY: /container/services/openldap/assets/certs/tls.key
-      OPENLDAP_BOOTSTRAP_TLS_CA_CERT: /container/services/openldap/assets/certs/ca.crt
-      OPENLDAP_URLS: "ldaps://:6360 ldapi:///"
     volumes:
-      - ldap-certs:/container/services/openldap/assets/certs:ro
-      - ./demo/ldap/01-people.ldif:/container/services/openldap-bootstrap/assets/ldif/data/custom/90-people.ldif:ro
+      - ldap-certs:/certs:ro
     tmpfs:
-      - /var/lib/openldap/openldap-data:size=67108864,mode=0700,uid=911,gid=911
-      - /etc/openldap/slapd.d:size=16777216,mode=0700,uid=911,gid=911
+      - /var/lib/openldap/openldap-data:size=67108864,mode=0700,uid=100,gid=101
+      - /run/openldap:size=1048576,mode=0755,uid=100,gid=101
     networks: [demo]
 
   dex:
-    image: ghcr.io/dexidp/dex:v2.45.1
+    image: ghcr.io/dexidp/dex:v2.45.1@sha256:8499afd690c437f52301efd2b05b2455da5bd2dfc20332cd697dc9937f808462
     command: ["dex", "serve", "/etc/dex/config.yaml"]
     depends_on:
       ldap:
@@ -50,8 +38,10 @@ services:
     networks: [demo, frontend]
 
   mongo:
-    image: mongo:7.0
-    command: ["mongod", "--bind_ip_all", "--quiet"]
+    image: mongo:7.0@sha256:9854f7139445d766a9523571d6f047530c45547460ffcf8259eb2bf4264632ca
+    # FTDC writes frequent archive files that are unnecessary in this
+    # disposable tmpfs lab and can fail on Docker Desktop's tmpfs adapter.
+    command: ["mongod", "--bind_ip_all", "--quiet", "--setParameter", "diagnosticDataCollectionEnabled=false"]
     tmpfs:
       - /data/db:size=268435456,mode=1777
     networks: [demo]

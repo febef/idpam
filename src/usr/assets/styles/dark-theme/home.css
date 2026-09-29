@@ -38,7 +38,7 @@ section {
   z-index:100;
 }
 
-section.main {
+main.main {
   overflow-y: auto;
   display: flex;
   flex-wrap: wrap;

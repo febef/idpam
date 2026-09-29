@@ -1,4 +1,5 @@
 import mongoose from 'mongoose'
+import { tenantPlugin } from '../../../demo/tenantPlugin.js'
 
 const LDAPCredentialSchema = new mongoose.Schema({
   issuer: { type: String, required: true },
@@ -7,6 +8,9 @@ const LDAPCredentialSchema = new mongoose.Schema({
   enabled: { type: Boolean, default: true },
   roles: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Role' }]
 });
+
+LDAPCredentialSchema.plugin(tenantPlugin);
+LDAPCredentialSchema.index({ tenantId: 1, issuer: 1, email: 1 }, { unique: true });
 
 LDAPCredentialSchema.statics.verifyMethod = function(data) {
   return false;

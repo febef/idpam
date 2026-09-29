@@ -12,10 +12,11 @@ html(lang="en")
     link(rel="stylesheet", href=`/assets/styles/${theme}/${pageTitle === 'identities' || pageTitle === 'Token emitido' ? 'home' : pageTitle}.css`)
 
   body
-
+    a.skipLink(href='#main-content') Skip to content
     include ../partials/header.pug
     block main
     include ../partials/squares.pug
     include ../partials/footer.pug
+    script(src='/assets/scripts/motion.js')
     if user
       script(src='/assets/scripts/management.js')

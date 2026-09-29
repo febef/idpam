@@ -1,0 +1,19 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: idpam-demo-edge-only
+spec:
+  endpointSelector:
+    matchLabels:
+      k8s:app.kubernetes.io/name: idpam-demo
+  ingress:
+    - fromEntities:
+        - ingress
+        - host
+      toPorts:
+        - ports:
+            - port: "3000"
+              protocol: TCP
+            - port: "5556"
+              protocol: TCP
+  egress: []

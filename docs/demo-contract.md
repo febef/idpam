@@ -1,4 +1,4 @@
-# IdPAM: contrato de la demo local
+# IdPAM: contrato de la demo recuperada
 
 Esta rama rescata IdPAM como laboratorio personal. `legacy` conserva el último
 commit anterior a la evolución. El código histórico no acredita seguridad ni
@@ -51,36 +51,37 @@ ficticios y sin servicios, credenciales o redes de otras organizaciones.
    elementos de la lista.
    `nickName` sigue siendo obligatorio.
 
-## Límites antes de exponerla
+## Límites de la exposición pública
 
 - No se reutilizan contraseñas ni identidades reales, ni se versionan secretos.
-- No se publica la imagen, el tag, la rama ni una ruta HTTP hasta revisar
-  autorización, sesiones, CSRF, dependencias, historial, licencia y
-  aislamiento de red. Una demostración pública de identidad requiere pruebas
-  negativas de acceso y un mecanismo que falle cerrado.
+- La ruta pública sólo usa imágenes que pasaron pruebas, SBOM y análisis de
+  vulnerabilidades y secretos. Autorización, sesiones, CSRF, dependencias,
+  historial, licencia, aislamiento por visitante y aislamiento de red forman
+  parte del gate verificable; cualquier fallo debe cerrar el acceso.
 - El `docker-compose.yml` y `Dockerfile` heredados no son la receta de demo:
   contienen privilegios, rutas y configuración antigua ajena a este contrato.
-- La demo pública futura deberá evitar que sesiones de visitantes distintos
-  compartan cambios sorprendentes. El reset horario no equivale a aislamiento
-  por visitante. Antes de publicarla se decide y prueba ese contrato.
+- Cada sesión recibe un tenant sintético propio. Las consultas y escrituras
+  quedan acotadas por ese tenant y las pruebas HTTP verifican que dos visitantes
+  no comparten cambios. El reset y la expiración eliminan únicamente estado de
+  demo; no sustituyen esa separación.
 
 ## Diseño de implementación
 
 - La política de autorización es una función pura; HTTP y MongoDB sólo le
   entregan el sujeto, el verbo, el destino y los permisos.
 - El reset/seed es un caso de uso idempotente con un adaptador de persistencia
-  restringido a la base de demo. En esta fase local, un temporizador del mismo
-  proceso ejecuta el reset cada `RESET_INTERVAL_SECONDS` (3600 por defecto,
-  mínimo 60, máximo 86400) e invalida sus sesiones. Para un despliegue
-  multi-réplica se sustituirá por un job externo y un store de sesiones común.
+  restringido a la base de demo. Un temporizador del mismo proceso ejecuta el
+  reset cada `RESET_INTERVAL_SECONDS` (3600 por defecto, mínimo 60, máximo
+  86400). Las sesiones usan MongoDB y expiran junto con su tenant. El overlay
+  público declara una réplica y estrategia `Recreate`; escalarlo exigiría
+  separar el lifecycle en un job coordinado.
 - La fase inicial verifica política y arranque local; la integración con Mongo,
   UI y reset se prueba por separado. No se declara la demo lista por pasar una
   prueba unitaria.
 - En Compose, `openid-client` permite HTTP sólo para el issuer de loopback de
-  Dex y redirige las llamadas internas a su Service privado. Esto no es un
-  contrato Kubernetes: la URL pública requerirá HTTPS, callbacks exactos y
-  una configuración OIDC independiente. La imagen LDAP alpha es sólo un
-  vehículo de validación local, no un artefacto de release.
+  Dex. El overlay Kubernetes fija el issuer y callback HTTPS exactos, usa
+  loopback únicamente entre contenedores del mismo Pod y sirve un OpenLDAP
+  estable y mínimo construido desde una base fijada por digest.
 
 Referencias: [MongoDB Community vs. `inMemory`](https://www.mongodb.com/docs/v8.0/core/inmemory/),
 [volúmenes temporales de Kubernetes](https://kubernetes.io/docs/concepts/storage/volumes/),

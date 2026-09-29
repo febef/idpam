@@ -1,4 +1,6 @@
 import ExpressSession from 'express-session'
+import MongoStore from 'connect-mongo'
+import { rateLimit } from 'express-rate-limit'
 import mongoose from 'mongoose'
 import { fileURLToPath } from 'url'
 import { randomBytes, timingSafeEqual } from 'node:crypto'
@@ -6,7 +8,9 @@ import { normalizeDemoProfileInput, replaceFirstDemoNameItem } from '../demo/pro
 import { registerManagementRoutes } from '../management/routes.js'
 import { isDemoAdmin } from '../management/adminAccess.js'
 import { issueSshChallenge, verifySshProof } from '../management/sshProof.js'
-import { getOidcConfig, oidc, redirectUri } from '../oidc/client.js'
+import { getOidcConfig, oidc } from '../oidc/client.js'
+import { ensureDemoTenant, newTenantId } from '../demo/tenantLifecycle.js'
+import { runWithTenant } from '../demo/tenantContext.js'
 
 function verifyDemoCsrf(req) {
   const expected = req.session.demoCsrf;
@@ -36,27 +40,25 @@ wAdmin.prototype._configServer = function () {
   const use = this.app.use.bind(this.app);
   const set = this.app.set.bind(this.app);
 
-  this.sessionStore = new ExpressSession.MemoryStore();
+  this.sessionStore = MongoStore.create({
+    mongoUrl: this.config.mongoUri,
+    collectionName: 'demo_sessions',
+    ttl: this.config.tenantLifetimeSeconds,
+    touchAfter: 60
+  });
   this.eSession = new ExpressSession({
+    name: 'idpam.sid',
     secret: this.config.sessionSecret,
     store: this.sessionStore,
     saveUninitialized: false,
     resave: false,
-    cookie: { httpOnly: true, sameSite: 'lax' }
+    cookie: {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: this.config.secureCookie,
+      maxAge: this.config.tenantLifetimeSeconds * 1000
+    }
   });
-  /*{
-    secret: 'wadminsecret!shh',
-    // Create new redis store. 
-    // ⇒ https://codeforgeek.com/manage-session-using-node-js-express-4/
-    store: new redisStore({
-      host: 'localhost',
-      port: 6379,
-      client: client,
-      ttl : 260
-    }),
-    saveUninitialized: false,
-    resave: false
-  });*/
 
   set("view engine", "pug");
   set("views", fileURLToPath(new URL('../../usr/views/pages/', import.meta.url)));
@@ -65,10 +67,20 @@ wAdmin.prototype._configServer = function () {
     '/assets',
     this.idpam.express.static(fileURLToPath(new URL('../../usr/assets/', import.meta.url)))
   );
+  this.app.get('/healthz', (req, res) => {
+    res.type('text/plain').send('ok');
+  });
   use(this.eSession);
   use((req, res, next) => {
-    if (this.idpam.demoResetting) return res.status(503).send('Demo data is resetting');
-    next();
+    if (!req.session.demoTenantId) req.session.demoTenantId = newTenantId();
+    ensureDemoTenant(this.idpam.db.models, req.session.demoTenantId, {
+      password: process.env.IDPAM_DEMO_PASSWORD || 'demo-idpam-only-2026',
+      issuer: this.config.oidc.issuer,
+      lifetimeSeconds: this.config.tenantLifetimeSeconds
+    }).then(tenant => {
+      req.session.demoAdminCredentialId = String(tenant.adminCredentialId);
+      runWithTenant(req.session.demoTenantId, () => next());
+    }).catch(next);
   });
   use('/', this.router);
 
@@ -84,6 +96,20 @@ wAdmin.prototype._createRoutes = function () {
 
   const isaAuth = this.ifSessionActiveAutorice.bind(this);
   const idpAuth = this.idpam.idp.Authenticate.bind(this.idpam.idp);
+  const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: this.config.secureCookie ? 20 : 500,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    message: 'Too many authentication attempts; retry later.'
+  });
+  const mutationLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    limit: this.config.secureCookie ? 90 : 1000,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    message: 'Too many changes; retry later.'
+  });
 
   use((req, res, next) => {
     res.sendScript = (script) => {
@@ -99,12 +125,18 @@ wAdmin.prototype._createRoutes = function () {
       demoHint: !process.env.IDPAM_DEMO_PASSWORD });
   });
 
-  post('/login', async (req, res) => {
+  post('/login', loginLimiter, async (req, res) => {
     const credential = await idpAuth(req.body)
     if (credential != null) {
+      const tenantState = {
+        id: req.session.demoTenantId,
+        admin: req.session.demoAdminCredentialId
+      };
       await new Promise((resolve, reject) =>
         req.session.regenerate(error => error ? reject(error) : resolve())
       );
+      req.session.demoTenantId = tenantState.id;
+      req.session.demoAdminCredentialId = tenantState.admin;
       if (!await this._setUser(credential, req)) return res.redirect('/login');
       res.redirect('/');
     } else {
@@ -113,7 +145,7 @@ wAdmin.prototype._createRoutes = function () {
 
   });
 
-  post('/login/ssh/challenge', async (req, res) => {
+  post('/login/ssh/challenge', loginLimiter, async (req, res) => {
     const credentialId = req.body?.credentialId;
     if (!mongoose.isValidObjectId(credentialId)) return res.sendStatus(400);
     const credential = await this.idpam.db.models.sshkeycredential.findOne({ _id: credentialId, enabled: true });
@@ -124,7 +156,7 @@ wAdmin.prototype._createRoutes = function () {
     return res.json({ challenge, message: `idpam-demo-ssh-v1:${challenge}` });
   });
 
-  post('/login/ssh/verify', async (req, res) => {
+  post('/login/ssh/verify', loginLimiter, async (req, res) => {
     const pending = req.session.sshChallenge;
     delete req.session.sshChallenge; // consume once, including invalid attempts
     if (!pending || pending.expiresAt < Date.now() ||
@@ -135,23 +167,29 @@ wAdmin.prototype._createRoutes = function () {
     try { valid = verifySshProof(credential.publicKey, pending.challenge, req.body?.signature); }
     catch { valid = false; }
     if (!valid) return res.redirect('/login');
+    const tenantState = {
+      id: req.session.demoTenantId,
+      admin: req.session.demoAdminCredentialId
+    };
     await new Promise((resolve, reject) =>
       req.session.regenerate(error => error ? reject(error) : resolve())
     );
+    req.session.demoTenantId = tenantState.id;
+    req.session.demoAdminCredentialId = tenantState.admin;
     if (!await this._setUser(credential, req)) return res.redirect('/login');
     return res.redirect('/');
   });
 
-  get('/oidc/login', async (req, res, next) => {
+  get('/oidc/login', loginLimiter, async (req, res, next) => {
     try {
-      const config = await getOidcConfig();
+      const config = await getOidcConfig(this.config.oidc);
       const verifier = oidc.randomPKCECodeVerifier();
       const challenge = await oidc.calculatePKCECodeChallenge(verifier);
       const state = oidc.randomState();
       const nonce = oidc.randomNonce();
       req.session.oidcPending = { verifier, state, nonce, expiresAt: Date.now() + 300_000 };
       const destination = oidc.buildAuthorizationUrl(config, {
-        redirect_uri: redirectUri, scope: 'openid email profile',
+        redirect_uri: this.config.oidc.redirectUri, scope: 'openid email profile',
         code_challenge: challenge, code_challenge_method: 'S256', state, nonce
       });
       return res.redirect(destination.href);
@@ -163,22 +201,28 @@ wAdmin.prototype._createRoutes = function () {
     delete req.session.oidcPending;
     if (!pending || pending.expiresAt < Date.now()) return res.redirect('/login');
     try {
-      const config = await getOidcConfig();
+      const config = await getOidcConfig(this.config.oidc);
       const tokens = await oidc.authorizationCodeGrant(
-        config, new URL(req.originalUrl, 'http://127.0.0.1:3000'),
+        config, new URL(req.originalUrl, this.config.oidc.publicOrigin),
         { pkceCodeVerifier: pending.verifier, expectedState: pending.state,
           expectedNonce: pending.nonce, idTokenExpected: true }
       );
       const claims = tokens.claims();
-      if (claims?.iss !== 'http://127.0.0.1:5556/dex' ||
+      if (claims?.iss !== this.config.oidc.issuer ||
           typeof claims.email !== 'string' || !claims.sub) return res.redirect('/login');
       const credential = await this.idpam.db.models.ldapcredential.findOne({
         issuer: claims.iss, email: claims.email.toLowerCase(), enabled: true
       });
       if (!credential) return res.redirect('/login');
+      const tenantState = {
+        id: req.session.demoTenantId,
+        admin: req.session.demoAdminCredentialId
+      };
       await new Promise((resolve, reject) =>
         req.session.regenerate(error => error ? reject(error) : resolve())
       );
+      req.session.demoTenantId = tenantState.id;
+      req.session.demoAdminCredentialId = tenantState.admin;
       if (!await this._setUser(credential, req)) return res.redirect('/login');
       return res.redirect('/');
     } catch {
@@ -202,7 +246,7 @@ wAdmin.prototype._createRoutes = function () {
 
     if (req.params.page) {
       page = req.params.page;
-      if ((page === 'roles' || page === 'identities') && !isDemoAdmin(req, this.idpam)) {
+      if ((page === 'roles' || page === 'identities') && !isDemoAdmin(req)) {
         return res.sendStatus(403);
       }
 
@@ -224,13 +268,13 @@ wAdmin.prototype._createRoutes = function () {
     }
 
     if (!req.session.demoCsrf) req.session.demoCsrf = randomBytes(32).toString('hex');
-    if (page === 'home' && isDemoAdmin(req, this.idpam)) {
+    if (page === 'home' && isDemoAdmin(req)) {
       roleList = await this.idpam.db.models.role.find().lean();
     }
     res.render(page, {
       pageTitle: page,
       theme:"dark-theme",
-      demoReadOnly: isDemoAdmin(req, this.idpam),
+      demoReadOnly: isDemoAdmin(req),
       user: req.session.user,
       list,
       roleList,
@@ -246,8 +290,8 @@ wAdmin.prototype._createRoutes = function () {
     return res.status(410).json({ success: false, code: 410, message: 'Legacy API retired' });
   });
 
-  post('/demo/identities/:id/profile', isaAuth, async (req, res) => {
-    if (!isDemoAdmin(req, this.idpam)) return res.sendStatus(403);
+  post('/demo/identities/:id/profile', mutationLimiter, isaAuth, async (req, res) => {
+    if (!isDemoAdmin(req)) return res.sendStatus(403);
     if (!verifyDemoCsrf(req)) return res.sendStatus(403);
     if (!mongoose.isValidObjectId(req.params.id)) return res.sendStatus(400);
 
@@ -276,7 +320,7 @@ wAdmin.prototype._createRoutes = function () {
     return res.status(410).json({ success: false, code: 410, message: 'Legacy API retired' });
   });
 
-  registerManagementRoutes(this.router, this.idpam.db.models, isaAuth, this.idpam);
+  registerManagementRoutes(this.router, this.idpam.db.models, isaAuth, this.idpam, mutationLimiter);
 
   // Error Handling not found
   get('*', isaAuth, (req, res) => {

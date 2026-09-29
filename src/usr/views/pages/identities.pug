@@ -1,7 +1,7 @@
 extends ../layouts/main.pug
 
 block main
-  section.main
+  main#main-content.main
     header.legacySectionTitle
       h3 Identities
       button.min-info(type='button' data-open='create-identity') (+)
@@ -57,7 +57,7 @@ block main
         if !isCurrent
           button.min-info(type='button' data-delete=`/identities/${identity._id}/delete`) (delete identity)
 
-      dialog.dialog(id=`profile-${identity._id}`)
+      dialog.dialog(id=`profile-${identity._id}` aria-label='Edit metadata')
         header.boxTitle
           h3 Edit metadata
           button.btn.close(type='button' data-close aria-label='Cerrar') x
@@ -73,7 +73,7 @@ block main
             input(name='email' type='email' value=meta.email || '' maxlength='120')
           button(type='submit') save
 
-      dialog.dialog(id=`add-simplecredentials-${identity._id}`)
+      dialog.dialog(id=`add-simplecredentials-${identity._id}` aria-label='Create simple credential')
         header.boxTitle
           h3 Create simple credential
           button.btn.close(type='button' data-close aria-label='Cerrar') x
@@ -96,7 +96,7 @@ block main
                 = role.name
           button(type='submit') create
 
-      dialog.dialog(id=`add-tokencredentials-${identity._id}`)
+      dialog.dialog(id=`add-tokencredentials-${identity._id}` aria-label='Create token')
         header.boxTitle
           h3 Create token
           button.btn.close(type='button' data-close aria-label='Cerrar') x
@@ -114,7 +114,7 @@ block main
                 = role.name
           button(type='submit') create
 
-      dialog.dialog(id=`add-sshkeycredentials-${identity._id}`)
+      dialog.dialog(id=`add-sshkeycredentials-${identity._id}` aria-label='Register SSH key')
         header.boxTitle
           h3 Register SSH key
           button.btn.close(type='button' data-close aria-label='Cerrar') x
@@ -134,7 +134,7 @@ block main
 
       each credential in groups.simplecredentials || []
         if !isCurrent
-          dialog.dialog(id=`edit-simple-${credential._id}`)
+          dialog.dialog(id=`edit-simple-${credential._id}` aria-label='Edit simple credential')
             header.boxTitle
               h3 Edit simple credential
               button.btn.close(type='button' data-close aria-label='Cerrar') x
@@ -155,7 +155,7 @@ block main
                     = role.name
               button(type='submit') save
 
-    dialog.dialog#create-identity
+    dialog.dialog#create-identity(aria-label='Create identity')
       header.boxTitle
         h3 Create identity
         button.btn.close(type='button' data-close aria-label='Cerrar') x

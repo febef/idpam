@@ -3,36 +3,26 @@
 import IdPAM from '../../lib/idpam/index.js'
 import configs from '../../etc/index.js'
 import { demoResetConfig } from '../../lib/demo/resetConfig.js'
-import { resetAndSeedDemo } from '../../lib/demo/resetAndSeed.js'
+import { removeExpiredTenants } from '../../lib/demo/tenantLifecycle.js'
 
 const { intervalSeconds } = demoResetConfig(
   configs.database.uri,
   process.env.RESET_INTERVAL_SECONDS || '3600'
 );
-const demoPassword = process.env.IDPAM_DEMO_PASSWORD || 'demo-idpam-only-2026';
 const idpam = new IdPAM(configs);
 
 idpam.db.ready
   .then(async () => {
-    idpam.demoAdminCredentialId = await resetAndSeedDemo(idpam.db.models, configs.database.uri, intervalSeconds, demoPassword);
     idpam.serve();
 
     setInterval(async () => {
-      idpam.demoResetting = true;
       try {
-        idpam.demoAdminCredentialId = null;
-        idpam.demoAdminCredentialId = await resetAndSeedDemo(idpam.db.models, configs.database.uri, intervalSeconds, demoPassword);
-        await new Promise((resolve, reject) =>
-          idpam.wAdmin.sessionStore.clear(error => error ? reject(error) : resolve())
-        );
-        console.log('Disposable demo data and sessions reset.');
+        const removed = await removeExpiredTenants(idpam.db.models);
+        if (removed) console.log(`Removed ${removed} expired demo tenant(s).`);
       } catch (error) {
-        console.error('Demo reset failed; stopping instead of serving stale state:', error.message);
-        process.exit(1);
-      } finally {
-        idpam.demoResetting = false;
+        console.error('Expired demo tenant cleanup failed:', error.message);
       }
-    }, intervalSeconds * 1000).unref();
+    }, Math.min(intervalSeconds, 300) * 1000).unref();
   })
   .catch(error => {
     console.error('IdPAM failed to connect to its demo database:', error.message);

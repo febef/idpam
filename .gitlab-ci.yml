@@ -47,6 +47,8 @@ publish-development-image:
     - 'printf ''{"auths":{"%s":{"auth":"%s"}}}'' "$CI_REGISTRY" "$REGISTRY_AUTH" > "$HOME/.docker/config.json"'
   script:
     - 'buildctl-daemonless.sh build --frontend dockerfile.v0 --local context=. --local dockerfile=. --opt filename=Dockerfile.demo --output type=image,name="$CI_REGISTRY_IMAGE:build-dev-$CI_COMMIT_SHA",push=true'
+    - 'buildctl-daemonless.sh build --frontend dockerfile.v0 --local context=. --local dockerfile=. --opt filename=Dockerfile.demo-ldap --output type=image,name="$CI_REGISTRY_IMAGE/ldap:build-dev-$CI_COMMIT_SHA",push=true'
+    - 'buildctl-daemonless.sh build --frontend dockerfile.v0 --local context=. --local dockerfile=. --opt filename=Dockerfile.demo-ca --output type=image,name="$CI_REGISTRY_IMAGE/ca:build-dev-$CI_COMMIT_SHA",push=true'
   rules:
     - if: '$CI_COMMIT_BRANCH == "develop"'
 
@@ -61,13 +63,19 @@ scan-development-image:
     TRIVY_PASSWORD: "$CI_REGISTRY_PASSWORD"
   script:
     - 'trivy image --image-src remote --format cyclonedx --output image-sbom.cdx.json "$CI_REGISTRY_IMAGE:build-dev-$CI_COMMIT_SHA"'
+    - 'trivy image --image-src remote --format cyclonedx --output ldap-image-sbom.cdx.json "$CI_REGISTRY_IMAGE/ldap:build-dev-$CI_COMMIT_SHA"'
+    - 'trivy image --image-src remote --format cyclonedx --output ca-image-sbom.cdx.json "$CI_REGISTRY_IMAGE/ca:build-dev-$CI_COMMIT_SHA"'
     - 'trivy image --image-src remote --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 "$CI_REGISTRY_IMAGE:build-dev-$CI_COMMIT_SHA"'
+    - 'trivy image --image-src remote --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 "$CI_REGISTRY_IMAGE/ldap:build-dev-$CI_COMMIT_SHA"'
+    - 'trivy image --image-src remote --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 "$CI_REGISTRY_IMAGE/ca:build-dev-$CI_COMMIT_SHA"'
     - 'trivy image --image-src remote --scanners secret --exit-code 1 "$CI_REGISTRY_IMAGE:build-dev-$CI_COMMIT_SHA"'
+    - 'trivy image --image-src remote --scanners secret --exit-code 1 "$CI_REGISTRY_IMAGE/ldap:build-dev-$CI_COMMIT_SHA"'
+    - 'trivy image --image-src remote --scanners secret --exit-code 1 "$CI_REGISTRY_IMAGE/ca:build-dev-$CI_COMMIT_SHA"'
   artifacts:
     when: always
     access: maintainer
     expire_in: 7 days
-    paths: [image-sbom.cdx.json]
+    paths: [image-sbom.cdx.json, ldap-image-sbom.cdx.json, ca-image-sbom.cdx.json]
   rules:
     - if: '$CI_COMMIT_BRANCH == "develop"'
 
@@ -82,6 +90,8 @@ tag-development-image:
   script:
     - 'DEV_IMAGE_TAG="dev-$(printf "%s" "$CI_COMMIT_SHA" | cut -c1-12)"'
     - 'SOURCE_DIGEST="$(crane digest "$CI_REGISTRY_IMAGE:build-dev-$CI_COMMIT_SHA")"'
+    - 'LDAP_SOURCE_DIGEST="$(crane digest "$CI_REGISTRY_IMAGE/ldap:build-dev-$CI_COMMIT_SHA")"'
+    - 'CA_SOURCE_DIGEST="$(crane digest "$CI_REGISTRY_IMAGE/ca:build-dev-$CI_COMMIT_SHA")"'
     - |
       if EXISTING_DIGEST="$(crane digest "$CI_REGISTRY_IMAGE:$DEV_IMAGE_TAG" 2>/dev/null)"; then
         test "$EXISTING_DIGEST" = "$SOURCE_DIGEST"
@@ -89,6 +99,20 @@ tag-development-image:
         crane tag "$CI_REGISTRY_IMAGE:build-dev-$CI_COMMIT_SHA" "$DEV_IMAGE_TAG"
       fi
     - 'test "$(crane digest "$CI_REGISTRY_IMAGE:$DEV_IMAGE_TAG")" = "$SOURCE_DIGEST"'
+    - |
+      if EXISTING_DIGEST="$(crane digest "$CI_REGISTRY_IMAGE/ldap:$DEV_IMAGE_TAG" 2>/dev/null)"; then
+        test "$EXISTING_DIGEST" = "$LDAP_SOURCE_DIGEST"
+      else
+        crane tag "$CI_REGISTRY_IMAGE/ldap:build-dev-$CI_COMMIT_SHA" "$DEV_IMAGE_TAG"
+      fi
+    - 'test "$(crane digest "$CI_REGISTRY_IMAGE/ldap:$DEV_IMAGE_TAG")" = "$LDAP_SOURCE_DIGEST"'
+    - |
+      if EXISTING_DIGEST="$(crane digest "$CI_REGISTRY_IMAGE/ca:$DEV_IMAGE_TAG" 2>/dev/null)"; then
+        test "$EXISTING_DIGEST" = "$CA_SOURCE_DIGEST"
+      else
+        crane tag "$CI_REGISTRY_IMAGE/ca:build-dev-$CI_COMMIT_SHA" "$DEV_IMAGE_TAG"
+      fi
+    - 'test "$(crane digest "$CI_REGISTRY_IMAGE/ca:$DEV_IMAGE_TAG")" = "$CA_SOURCE_DIGEST"'
   rules:
     - if: '$CI_COMMIT_BRANCH == "develop"'
 
@@ -102,12 +126,18 @@ resolve-main-image:
   script:
     - 'DEV_IMAGE_TAG="dev-$(printf "%s" "$CI_COMMIT_SHA" | cut -c1-12)"'
     - |
-      if SOURCE_DIGEST="$(crane digest "$CI_REGISTRY_IMAGE:$DEV_IMAGE_TAG" 2>/dev/null)"; then
+      if SOURCE_DIGEST="$(crane digest "$CI_REGISTRY_IMAGE:$DEV_IMAGE_TAG" 2>/dev/null)" &&
+         LDAP_SOURCE_DIGEST="$(crane digest "$CI_REGISTRY_IMAGE/ldap:$DEV_IMAGE_TAG" 2>/dev/null)" &&
+         CA_SOURCE_DIGEST="$(crane digest "$CI_REGISTRY_IMAGE/ca:$DEV_IMAGE_TAG" 2>/dev/null)"; then
         crane tag "$CI_REGISTRY_IMAGE:$DEV_IMAGE_TAG" "$CI_COMMIT_SHA"
+        crane tag "$CI_REGISTRY_IMAGE/ldap:$DEV_IMAGE_TAG" "$CI_COMMIT_SHA"
+        crane tag "$CI_REGISTRY_IMAGE/ca:$DEV_IMAGE_TAG" "$CI_COMMIT_SHA"
         test "$(crane digest "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA")" = "$SOURCE_DIGEST"
-        printf 'REUSE_DEVELOPMENT_IMAGE=true\nSOURCE_IMAGE_DIGEST=%s\n' "$SOURCE_DIGEST" > main-image.env
+        test "$(crane digest "$CI_REGISTRY_IMAGE/ldap:$CI_COMMIT_SHA")" = "$LDAP_SOURCE_DIGEST"
+        test "$(crane digest "$CI_REGISTRY_IMAGE/ca:$CI_COMMIT_SHA")" = "$CA_SOURCE_DIGEST"
+        printf 'REUSE_DEVELOPMENT_IMAGE=true\nSOURCE_IMAGE_DIGEST=%s\nLDAP_SOURCE_IMAGE_DIGEST=%s\nCA_SOURCE_IMAGE_DIGEST=%s\n' "$SOURCE_DIGEST" "$LDAP_SOURCE_DIGEST" "$CA_SOURCE_DIGEST" > main-image.env
       else
-        printf 'REUSE_DEVELOPMENT_IMAGE=false\nSOURCE_IMAGE_DIGEST=\n' > main-image.env
+        printf 'REUSE_DEVELOPMENT_IMAGE=false\nSOURCE_IMAGE_DIGEST=\nLDAP_SOURCE_IMAGE_DIGEST=\nCA_SOURCE_IMAGE_DIGEST=\n' > main-image.env
       fi
   artifacts:
     access: maintainer
@@ -134,6 +164,8 @@ publish-main-image:
   script:
     - 'if [ "$REUSE_DEVELOPMENT_IMAGE" = true ]; then echo "Reusing the scanned development image."; exit 0; fi'
     - 'buildctl-daemonless.sh build --frontend dockerfile.v0 --local context=. --local dockerfile=. --opt filename=Dockerfile.demo --output type=image,name="$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA",push=true'
+    - 'buildctl-daemonless.sh build --frontend dockerfile.v0 --local context=. --local dockerfile=. --opt filename=Dockerfile.demo-ldap --output type=image,name="$CI_REGISTRY_IMAGE/ldap:$CI_COMMIT_SHA",push=true'
+    - 'buildctl-daemonless.sh build --frontend dockerfile.v0 --local context=. --local dockerfile=. --opt filename=Dockerfile.demo-ca --output type=image,name="$CI_REGISTRY_IMAGE/ca:$CI_COMMIT_SHA",push=true'
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
 
@@ -152,13 +184,19 @@ scan-main-image:
     TRIVY_PASSWORD: "$CI_REGISTRY_PASSWORD"
   script:
     - 'trivy image --image-src remote --format cyclonedx --output image-sbom.cdx.json "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA"'
+    - 'trivy image --image-src remote --format cyclonedx --output ldap-image-sbom.cdx.json "$CI_REGISTRY_IMAGE/ldap:$CI_COMMIT_SHA"'
+    - 'trivy image --image-src remote --format cyclonedx --output ca-image-sbom.cdx.json "$CI_REGISTRY_IMAGE/ca:$CI_COMMIT_SHA"'
     - 'trivy image --image-src remote --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA"'
+    - 'trivy image --image-src remote --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 "$CI_REGISTRY_IMAGE/ldap:$CI_COMMIT_SHA"'
+    - 'trivy image --image-src remote --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 "$CI_REGISTRY_IMAGE/ca:$CI_COMMIT_SHA"'
     - 'trivy image --image-src remote --scanners secret --exit-code 1 "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA"'
+    - 'trivy image --image-src remote --scanners secret --exit-code 1 "$CI_REGISTRY_IMAGE/ldap:$CI_COMMIT_SHA"'
+    - 'trivy image --image-src remote --scanners secret --exit-code 1 "$CI_REGISTRY_IMAGE/ca:$CI_COMMIT_SHA"'
   artifacts:
     when: always
     access: maintainer
     expire_in: 7 days
-    paths: [image-sbom.cdx.json]
+    paths: [image-sbom.cdx.json, ldap-image-sbom.cdx.json, ca-image-sbom.cdx.json]
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
 
@@ -200,6 +238,8 @@ tag-release-image:
   script:
     - 'if [ -z "$RELEASE_TAG" ]; then echo "No semantic release."; exit 0; fi'
     - 'SOURCE_DIGEST="$(crane digest "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA")"'
+    - 'LDAP_SOURCE_DIGEST="$(crane digest "$CI_REGISTRY_IMAGE/ldap:$CI_COMMIT_SHA")"'
+    - 'CA_SOURCE_DIGEST="$(crane digest "$CI_REGISTRY_IMAGE/ca:$CI_COMMIT_SHA")"'
     - |
       if EXISTING_DIGEST="$(crane digest "$CI_REGISTRY_IMAGE:$RELEASE_TAG" 2>/dev/null)"; then
         test "$EXISTING_DIGEST" = "$SOURCE_DIGEST"
@@ -207,5 +247,19 @@ tag-release-image:
         crane tag "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA" "$RELEASE_TAG"
       fi
     - 'test "$(crane digest "$CI_REGISTRY_IMAGE:$RELEASE_TAG")" = "$SOURCE_DIGEST"'
+    - |
+      if EXISTING_DIGEST="$(crane digest "$CI_REGISTRY_IMAGE/ldap:$RELEASE_TAG" 2>/dev/null)"; then
+        test "$EXISTING_DIGEST" = "$LDAP_SOURCE_DIGEST"
+      else
+        crane tag "$CI_REGISTRY_IMAGE/ldap:$CI_COMMIT_SHA" "$RELEASE_TAG"
+      fi
+    - 'test "$(crane digest "$CI_REGISTRY_IMAGE/ldap:$RELEASE_TAG")" = "$LDAP_SOURCE_DIGEST"'
+    - |
+      if EXISTING_DIGEST="$(crane digest "$CI_REGISTRY_IMAGE/ca:$RELEASE_TAG" 2>/dev/null)"; then
+        test "$EXISTING_DIGEST" = "$CA_SOURCE_DIGEST"
+      else
+        crane tag "$CI_REGISTRY_IMAGE/ca:$CI_COMMIT_SHA" "$RELEASE_TAG"
+      fi
+    - 'test "$(crane digest "$CI_REGISTRY_IMAGE/ca:$RELEASE_TAG")" = "$CA_SOURCE_DIGEST"'
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'

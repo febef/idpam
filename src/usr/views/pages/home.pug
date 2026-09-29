@@ -5,7 +5,7 @@ include ../mixin/editableobject.pug
 
 block main
 
-  section.main(data-identity-id=id._id)
+  main#main-content.main(data-identity-id=id._id)
 
     section.user.m-1
       +user(user)
@@ -27,14 +27,14 @@ block main
               small
                 label 
                   pre filter:
-              input.min-info(type='text')
+              input.min-info(type='search' id=`home-filter-${credentialType}` aria-label=`Filter ${credentialType}`)
               //span &#128270;
           .div.scroll-container
             for credential, key in id.credentials[credentialType]
               article.box(data-target=`${credentialType.split('').slice(0,-1).join('')}:${credential.id}`)
                 +editableObject(credential, '', '')
                 fieldset.flex-rigth
-                  button.min-info(data-verb='delete') (delete)
+                  button.min-info(type='button' data-verb='delete' aria-label=`Delete ${credential.name || credentialType}`) (delete)
                 //`credential.${credentialType}`)
             else
               span.min-info no hay credenciales
@@ -47,7 +47,7 @@ block main
         input(name='lastNames' value=(id.metadatas.lastNames || [])[0] || '' maxlength='60')
         input(name='email' type='email' value=id.metadatas.email || '' maxlength='120')
 
-      dialog.dialog#home-add-simplecredentials
+      dialog.dialog#home-add-simplecredentials(aria-label='Create simple credential')
         header.boxTitle
           h3 Create simple credential
           button.btn.close(type='button' data-close aria-label='Cerrar') x
@@ -70,7 +70,7 @@ block main
                 = role.name
           button(type='submit') create
 
-      dialog.dialog#home-add-tokencredentials
+      dialog.dialog#home-add-tokencredentials(aria-label='Create token')
         header.boxTitle
           h3 Create token
           button.btn.close(type='button' data-close aria-label='Cerrar') x
@@ -88,7 +88,7 @@ block main
                 = role.name
           button(type='submit') create
 
-      dialog.dialog#home-add-sshkeycredentials
+      dialog.dialog#home-add-sshkeycredentials(aria-label='Register SSH key')
         header.boxTitle
           h3 Register SSH key
           button.btn.close(type='button' data-close aria-label='Cerrar') x
@@ -106,7 +106,7 @@ block main
                 = role.name
           button(type='submit') create
 
-      dialog.dialog#home-token-issued
+      dialog.dialog#home-token-issued(aria-label='Issued token')
         header.boxTitle
           h3 Token emitido
           button.btn.close(type='button' data-close aria-label='Cerrar') x

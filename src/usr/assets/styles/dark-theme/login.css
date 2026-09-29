@@ -13,7 +13,7 @@ body :-moz-placeholder {
   font-weight: 300;
 }
 
-section.main {
+main.main {
   width: 100%;
   height: 100%;
   overflow: hidden;
@@ -80,7 +80,7 @@ form input:hover {
 form input:focus {
   background-color: white;
   width: 300px;
-  color: #53e3a6;
+  color: #176e58;
 }
 
 form button {
@@ -91,7 +91,7 @@ form button {
   background-color: white;
   border: 0;
   padding: 10px 15px;
-  color: #53e3a6;
+  color: #176e58;
   border-radius: 3px;
   width: 250px;
   cursor: pointer;
@@ -131,6 +131,6 @@ html, body { min-height: 100%; overflow: auto; }
 .method form { gap: .15rem; }
 .method form + form { margin-top: .8rem; }
 .method input, .method button { max-width: min(300px, 100%); }
-.method .oidcLink { display: inline-block; width: 250px; max-width: 100%; padding: 10px 15px; border-radius: 3px; background: #fff; color: #2a9875; text-decoration: none; }
+.method .oidcLink { display: inline-block; width: 250px; max-width: 100%; padding: 10px 15px; border-radius: 3px; background: #fff; color: #176e58; text-decoration: none; }
 .loginStage :focus-visible { outline: 3px solid #183b39; outline-offset: 3px; }
 @media (max-width: 550px) { .loginStage { padding-top: 4rem; } .methodList { padding: .5rem; } }

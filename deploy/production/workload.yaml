@@ -1,0 +1,271 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: idpam-demo
+automountServiceAccountToken: false
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: idpam-demo
+  annotations:
+    domus.land/demo-contract: disposable-synthetic-poc
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: idpam-demo
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: idpam-demo
+    spec:
+      serviceAccountName: idpam-demo
+      automountServiceAccountToken: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: demo-ca
+          image: registry.gitlab.com/febef.dev/idpam/ca
+          imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: 5m
+              memory: 12Mi
+            limits:
+              cpu: 100m
+              memory: 48Mi
+          securityContext:
+            runAsUser: 0
+            runAsNonRoot: false
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+              add: [CHOWN]
+          volumeMounts:
+            - name: ldap-certs
+              mountPath: /certs
+            - name: ldap-ca
+              mountPath: /ca
+      containers:
+        - name: app
+          image: registry.gitlab.com/febef.dev/idpam
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: IDPAM_DEMO_MODE
+              value: "1"
+            - name: IDPAM_PUBLIC_DEMO
+              value: "1"
+            - name: MONGODB_URI
+              value: mongodb://127.0.0.1:27017/idpam_demo
+            - name: BIND_HOST
+              value: 0.0.0.0
+            - name: PORT
+              value: "3000"
+            - name: RESET_INTERVAL_SECONDS
+              value: "3600"
+            - name: PUBLIC_ORIGIN
+              value: https://idpam.demos.apx.domus.land
+            - name: OIDC_ISSUER
+              value: https://idpam.demos.apx.domus.land/dex
+            - name: OIDC_REDIRECT_URI
+              value: https://idpam.demos.apx.domus.land/oidc/callback
+            - name: OIDC_INTERNAL_ORIGIN
+              value: http://127.0.0.1:5556
+          ports:
+            - name: http
+              containerPort: 3000
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            failureThreshold: 30
+            periodSeconds: 2
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 15
+          resources:
+            requests:
+              cpu: 25m
+              memory: 96Mi
+            limits:
+              cpu: 500m
+              memory: 384Mi
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: app-tmp
+              mountPath: /tmp
+        - name: mongo
+          image: mongo:7.0@sha256:9854f7139445d766a9523571d6f047530c45547460ffcf8259eb2bf4264632ca
+          imagePullPolicy: IfNotPresent
+          args:
+            - mongod
+            - --bind_ip
+            - 127.0.0.1
+            - --quiet
+            - --setParameter
+            - diagnosticDataCollectionEnabled=false
+          readinessProbe:
+            exec:
+              command: [mongosh, --quiet, --eval, "db.adminCommand({ ping: 1 }).ok"]
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 25m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 999
+            runAsGroup: 999
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: mongo-data
+              mountPath: /data/db
+            - name: mongo-config
+              mountPath: /data/configdb
+            - name: mongo-tmp
+              mountPath: /tmp
+        - name: ldap
+          image: registry.gitlab.com/febef.dev/idpam/ldap
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: ldaps
+              containerPort: 6360
+          readinessProbe:
+            tcpSocket:
+              port: ldaps
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 10m
+              memory: 24Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 100
+            runAsGroup: 101
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: ldap-certs
+              mountPath: /certs
+              readOnly: true
+            - name: ldap-data
+              mountPath: /var/lib/openldap/openldap-data
+            - name: ldap-run
+              mountPath: /run/openldap
+        - name: dex
+          image: ghcr.io/dexidp/dex:v2.45.1@sha256:8499afd690c437f52301efd2b05b2455da5bd2dfc20332cd697dc9937f808462
+          imagePullPolicy: IfNotPresent
+          args: [dex, serve, /etc/dex/config.yaml]
+          env:
+            - name: DEX_CONTINUE_ON_CONNECTOR_FAILURE
+              value: "false"
+          ports:
+            - name: dex
+              containerPort: 5556
+          readinessProbe:
+            httpGet:
+              path: /dex/.well-known/openid-configuration
+              port: dex
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 15m
+              memory: 32Mi
+            limits:
+              cpu: 250m
+              memory: 192Mi
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1001
+            runAsGroup: 1001
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: dex-config
+              mountPath: /etc/dex/config.yaml
+              subPath: config.yaml
+              readOnly: true
+            - name: ldap-ca
+              mountPath: /etc/dex/ldap-ca
+              readOnly: true
+            - name: dex-data
+              mountPath: /var/dex
+            - name: dex-tmp
+              mountPath: /tmp
+      volumes:
+        - name: app-tmp
+          emptyDir:
+            sizeLimit: 16Mi
+        - name: mongo-data
+          emptyDir:
+            medium: Memory
+            sizeLimit: 256Mi
+        - name: mongo-config
+          emptyDir:
+            medium: Memory
+            sizeLimit: 16Mi
+        - name: mongo-tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 16Mi
+        - name: ldap-data
+          emptyDir:
+            medium: Memory
+            sizeLimit: 64Mi
+        - name: ldap-run
+          emptyDir:
+            medium: Memory
+            sizeLimit: 4Mi
+        - name: ldap-certs
+          emptyDir:
+            medium: Memory
+            sizeLimit: 8Mi
+        - name: ldap-ca
+          emptyDir:
+            medium: Memory
+            sizeLimit: 4Mi
+        - name: dex-data
+          emptyDir:
+            medium: Memory
+            sizeLimit: 32Mi
+        - name: dex-tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 8Mi
+        - name: dex-config
+          configMap:
+            name: idpam-demo-dex

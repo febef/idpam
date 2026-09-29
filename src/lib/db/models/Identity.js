@@ -1,5 +1,6 @@
 
 import mongoose from 'mongoose'
+import { tenantPlugin } from '../../demo/tenantPlugin.js'
 
 const ObjectId = mongoose.Schema.Types.ObjectId
 
@@ -14,5 +15,7 @@ const IdentitySchema = new mongoose.Schema({
   },
   metadatas: { type: ObjectId, ref: 'MetaData' }
 });
+
+IdentitySchema.plugin(tenantPlugin);
 
 export default mongoose.model("Identity", IdentitySchema);

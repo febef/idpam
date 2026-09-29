@@ -18,7 +18,7 @@ function validCsrf(req) {
 
 function managed(idpam, handler) {
   return async (req, res, next) => {
-    if (!isDemoAdmin(req, idpam) || !validCsrf(req)) {
+    if (!isDemoAdmin(req) || !validCsrf(req)) {
       return res.sendStatus(403);
     }
     try { await handler(req, res); }
@@ -39,9 +39,10 @@ function assertId(value) {
 function redirect(res, path) { return res.redirect(303, path); }
 
 // Explicit operations replace the legacy arbitrary model/path mutation API.
-export function registerManagementRoutes(router, models, sessionAuth, idpam) {
+export function registerManagementRoutes(router, models, sessionAuth, idpam, mutationLimiter=(req, res, next) => next()) {
   const protect = handler => managed(idpam, handler);
-  router.post('/identities', sessionAuth, protect(async (req, res) => {
+  const post = (path, ...handlers) => router.post(path, mutationLimiter, ...handlers);
+  post('/identities', sessionAuth, protect(async (req, res) => {
     const profile = normalizeDemoProfileInput({
       nickName: req.body.nickName, names: req.body.names,
       lastNames: req.body.lastNames, email: req.body.email
@@ -56,7 +57,7 @@ export function registerManagementRoutes(router, models, sessionAuth, idpam) {
     redirect(res, '/identities');
   }));
 
-  router.post('/identities/:id/metadata/:field/items', sessionAuth, protect(async (req, res) => {
+  post('/identities/:id/metadata/:field/items', sessionAuth, protect(async (req, res) => {
     const { field } = req.params;
     if (!['names', 'lastNames'].includes(field)) throw new TypeError('Unsupported metadata field');
     const identity = await models.identity.findOne({ _id: assertId(req.params.id), domain: 'demo' });
@@ -74,7 +75,7 @@ export function registerManagementRoutes(router, models, sessionAuth, idpam) {
     redirect(res, '/');
   }));
 
-  router.post('/identities/:id/delete', sessionAuth, protect(async (req, res) => {
+  post('/identities/:id/delete', sessionAuth, protect(async (req, res) => {
     const identity = await models.identity.findOne({ _id: assertId(req.params.id), domain: 'demo' });
     if (!identity) return res.sendStatus(404);
     if (Object.values(identity.credentials.toObject()).some(values => values.length)) {
@@ -85,7 +86,7 @@ export function registerManagementRoutes(router, models, sessionAuth, idpam) {
     redirect(res, '/identities');
   }));
 
-  router.post('/identities/:id/credentials/simple', sessionAuth, protect(async (req, res) => {
+  post('/identities/:id/credentials/simple', sessionAuth, protect(async (req, res) => {
     const identity = await models.identity.findOne({ _id: assertId(req.params.id), domain: 'demo' });
     if (!identity) return res.sendStatus(404);
     const input = normalizeSimpleCredentialInput(req.body, { creating: true });
@@ -108,7 +109,7 @@ export function registerManagementRoutes(router, models, sessionAuth, idpam) {
     redirect(res, '/identities');
   }));
 
-  router.post('/credentials/simple/:id', sessionAuth, protect(async (req, res) => {
+  post('/credentials/simple/:id', sessionAuth, protect(async (req, res) => {
     const id = assertId(req.params.id);
     if (String(req.session.user.credentialId) === id) return res.sendStatus(403);
     const credential = await models.simplecredential.findById(id);
@@ -124,7 +125,7 @@ export function registerManagementRoutes(router, models, sessionAuth, idpam) {
     redirect(res, '/identities');
   }));
 
-  router.post('/credentials/simple/:id/delete', sessionAuth, protect(async (req, res) => {
+  post('/credentials/simple/:id/delete', sessionAuth, protect(async (req, res) => {
     const id = assertId(req.params.id);
     if (String(req.session.user.credentialId) === id) return res.sendStatus(403);
     const identity = await models.identity.findOne({ 'credentials.simplecredentials': id, domain: 'demo' });
@@ -135,7 +136,7 @@ export function registerManagementRoutes(router, models, sessionAuth, idpam) {
     redirect(res, '/identities');
   }));
 
-  router.post('/identities/:id/credentials/token', sessionAuth, protect(async (req, res) => {
+  post('/identities/:id/credentials/token', sessionAuth, protect(async (req, res) => {
     const identity = await models.identity.findOne({ _id: assertId(req.params.id), domain: 'demo' });
     if (!identity) return res.sendStatus(404);
     const name = String(req.body.name || '').trim();
@@ -166,7 +167,7 @@ export function registerManagementRoutes(router, models, sessionAuth, idpam) {
     });
   }));
 
-  router.post('/credentials/token/:id/delete', sessionAuth, protect(async (req, res) => {
+  post('/credentials/token/:id/delete', sessionAuth, protect(async (req, res) => {
     const id = assertId(req.params.id);
     const identity = await models.identity.findOne({ 'credentials.tokencredentials': id, domain: 'demo' });
     if (!identity) return res.sendStatus(404);
@@ -176,7 +177,7 @@ export function registerManagementRoutes(router, models, sessionAuth, idpam) {
     redirect(res, '/identities');
   }));
 
-  router.post('/identities/:id/credentials/ssh', sessionAuth, protect(async (req, res) => {
+  post('/identities/:id/credentials/ssh', sessionAuth, protect(async (req, res) => {
     const identity = await models.identity.findOne({ _id: assertId(req.params.id), domain: 'demo' });
     if (!identity) return res.sendStatus(404);
     const name = String(req.body.name || '').trim();
@@ -197,7 +198,7 @@ export function registerManagementRoutes(router, models, sessionAuth, idpam) {
     redirect(res, '/identities');
   }));
 
-  router.post('/credentials/ssh/:id/delete', sessionAuth, protect(async (req, res) => {
+  post('/credentials/ssh/:id/delete', sessionAuth, protect(async (req, res) => {
     const id = assertId(req.params.id);
     const identity = await models.identity.findOne({ 'credentials.sshkeycredentials': id, domain: 'demo' });
     if (!identity) return res.sendStatus(404);
@@ -207,12 +208,12 @@ export function registerManagementRoutes(router, models, sessionAuth, idpam) {
     redirect(res, '/identities');
   }));
 
-  router.post('/roles', sessionAuth, protect(async (req, res) => {
+  post('/roles', sessionAuth, protect(async (req, res) => {
     await models.role.create({ name: normalizeRoleName(req.body.name), permissions: [] });
     redirect(res, '/roles');
   }));
 
-  router.post('/roles/:id', sessionAuth, protect(async (req, res) => {
+  post('/roles/:id', sessionAuth, protect(async (req, res) => {
     const role = await models.role.findById(assertId(req.params.id));
     if (!role) return res.sendStatus(404);
     role.name = normalizeRoleName(req.body.name);
@@ -220,7 +221,7 @@ export function registerManagementRoutes(router, models, sessionAuth, idpam) {
     redirect(res, '/roles');
   }));
 
-  router.post('/roles/:id/delete', sessionAuth, protect(async (req, res) => {
+  post('/roles/:id/delete', sessionAuth, protect(async (req, res) => {
     const id = assertId(req.params.id);
     const role = await models.role.findById(id);
     if (!role) return res.sendStatus(404);
@@ -235,7 +236,7 @@ export function registerManagementRoutes(router, models, sessionAuth, idpam) {
     redirect(res, '/roles');
   }));
 
-  router.post('/roles/:id/permissions', sessionAuth, protect(async (req, res) => {
+  post('/roles/:id/permissions', sessionAuth, protect(async (req, res) => {
     const role = await models.role.findById(assertId(req.params.id));
     if (!role) return res.sendStatus(404);
     const permission = await models.permission.create(normalizePermissionInput(req.body));
@@ -244,7 +245,7 @@ export function registerManagementRoutes(router, models, sessionAuth, idpam) {
     redirect(res, '/roles');
   }));
 
-  router.post('/permissions/:id', sessionAuth, protect(async (req, res) => {
+  post('/permissions/:id', sessionAuth, protect(async (req, res) => {
     const permission = await models.permission.findById(assertId(req.params.id));
     if (!permission) return res.sendStatus(404);
     const input = normalizePermissionInput(req.body);
@@ -254,7 +255,7 @@ export function registerManagementRoutes(router, models, sessionAuth, idpam) {
     redirect(res, '/roles');
   }));
 
-  router.post('/roles/:roleId/permissions/:permissionId/delete', sessionAuth, protect(async (req, res) => {
+  post('/roles/:roleId/permissions/:permissionId/delete', sessionAuth, protect(async (req, res) => {
     const role = await models.role.findById(assertId(req.params.roleId));
     const permissionId = assertId(req.params.permissionId);
     if (!role || !role.permissions.some(id => String(id) === permissionId)) return res.sendStatus(404);
@@ -266,7 +267,7 @@ export function registerManagementRoutes(router, models, sessionAuth, idpam) {
     redirect(res, '/roles');
   }));
 
-  router.post('/access/check', sessionAuth, protect(async (req, res) => {
+  post('/access/check', sessionAuth, protect(async (req, res) => {
     const role = await models.role.findById(assertId(req.body.roleId)).populate('permissions');
     if (!role) return res.sendStatus(404);
     const { target, verb } = req.body;

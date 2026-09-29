@@ -1,0 +1,34 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: idpam-demo
+spec:
+  parentRefs:
+    - name: cilium-gateway
+      namespace: 10-network
+      sectionName: demos-apx-wildcard
+      kind: Gateway
+      group: gateway.networking.k8s.io
+  hostnames:
+    - idpam.demos.apx.domus.land
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /dex
+      backendRefs:
+        - name: idpam-demo
+          kind: Service
+          group: ""
+          port: 5556
+          weight: 1
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: idpam-demo
+          kind: Service
+          group: ""
+          port: 3000
+          weight: 1

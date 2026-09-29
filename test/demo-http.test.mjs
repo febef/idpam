@@ -13,6 +13,10 @@ function sshPublicKey(key) {
 test('the local demo supports scoped profile edits and rejects broad mutations',
   { skip: process.env.RUN_HTTP_TEST !== '1' }, async () => {
     const base = 'http://127.0.0.1:3000';
+    const health = await fetch(`${base}/healthz`);
+    assert.equal(health.status, 200);
+    assert.equal(await health.text(), 'ok');
+    assert.equal(health.headers.get('set-cookie'), null);
     const runId = Date.now().toString(36);
     const roleName = `DemoOperator${runId}`;
     const identityName = `Tess ${runId}`;
@@ -27,7 +31,7 @@ test('the local demo supports scoped profile edits and rejects broad mutations',
       body: new URLSearchParams({ userfacade: 'demo', password: 'demo-idpam-only-2026' })
     });
     assert.equal(login.status, 302);
-    const cookie = login.headers.get('set-cookie')?.split(';')[0];
+    let cookie = login.headers.get('set-cookie')?.split(';')[0];
     assert.ok(cookie);
 
     const request = (path, options = {}) => fetch(`${base}${path}`, {
@@ -42,6 +46,9 @@ test('the local demo supports scoped profile edits and rejects broad mutations',
     assert.match(html, /data-inline-field="email"[^>]*data-inline-form="profile-[a-f0-9]{24}"/);
     assert.match(html, /<dialog class="dialog" id="create-identity"/);
     const homeHtml = await (await request('/')).text();
+    assert.match(homeHtml, /<main[^>]+id="main-content"/);
+    assert.doesNotMatch(homeHtml, /<img src=""/);
+    assert.match(homeHtml, /class="motionToggle"/);
     assert.match(homeHtml, /id="home-profile-form"/);
     assert.match(homeHtml, /id="home-add-simplecredentials"/);
     assert.match(homeHtml, /id="home-add-tokencredentials"/);
@@ -49,7 +56,8 @@ test('the local demo supports scoped profile edits and rejects broad mutations',
     assert.match(homeHtml, /id="home-token-issued"/);
     const match = html.match(/action="(\/demo\/identities\/([a-f0-9]{24})\/profile)"[^>]*>[\s\S]*?name="csrfToken" value="([a-f0-9]{64})"/);
     assert.ok(match, 'an editable synthetic identity has a CSRF-protected form');
-    const [, path, , csrfToken] = match;
+    const [, path, , initialCsrfToken] = match;
+    let csrfToken = initialCsrfToken;
     const body = new URLSearchParams({ nickName: 'Ada HTTP', names: 'Ada', lastNames: 'Lovelace', email: 'ada@example.test' });
 
     const rejected = await request(path, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body });
@@ -142,7 +150,7 @@ test('the local demo supports scoped profile edits and rejects broad mutations',
     assert.equal(createCredential.status, 303);
     const testLogin = await fetch(`${base}/login`, {
       method: 'POST', redirect: 'manual',
-      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      headers: { cookie, 'content-type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({ userfacade: username, password: 'demo-test-pass-123' })
     });
     assert.equal(testLogin.status, 302);
@@ -156,6 +164,20 @@ test('the local demo supports scoped profile edits and rejects broad mutations',
       body: new URLSearchParams({ csrfToken, name: 'Unauthorized' })
     });
     assert.equal(deniedMutation.status, 403);
+
+    const restoreAdmin = async activeCookie => {
+      const response = await fetch(`${base}/login`, {
+        method: 'POST', redirect: 'manual',
+        headers: { cookie: activeCookie, 'content-type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ userfacade: 'demo', password: 'demo-idpam-only-2026' })
+      });
+      assert.equal(response.headers.get('location'), '/');
+      return response.headers.get('set-cookie')?.split(';')[0];
+    };
+    cookie = await restoreAdmin(testCookie);
+    csrfToken = (await (await request('/identities')).text())
+      .match(/name="csrfToken" value="([a-f0-9]{64})"/)?.[1];
+    assert.ok(csrfToken);
 
     const issued = await request(`/identities/${identityId}/credentials/token`, {
       method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' },
@@ -175,12 +197,16 @@ test('the local demo supports scoped profile edits and rejects broad mutations',
     assert.match((await issuedOnHome.json()).token, /^[a-f0-9]{64}$/);
     const tokenLogin = await fetch(`${base}/login`, {
       method: 'POST', redirect: 'manual',
-      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      headers: { cookie, 'content-type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({ token })
     });
     assert.equal(tokenLogin.status, 302);
     const tokenCookie = tokenLogin.headers.get('set-cookie')?.split(';')[0];
     assert.equal((await fetch(`${base}/`, { headers: { cookie: tokenCookie }, redirect: 'manual' })).status, 200);
+    cookie = await restoreAdmin(tokenCookie);
+    csrfToken = (await (await request('/identities')).text())
+      .match(/name="csrfToken" value="([a-f0-9]{64})"/)?.[1];
+    assert.ok(csrfToken);
     const tokenId = (await (await request('/identities')).text()).match(new RegExp(`${tokenName}[\\s\\S]*?data-delete="/credentials/token/([a-f0-9]{24})/delete"`))?.[1];
     assert.ok(tokenId);
     assert.equal((await request(`/credentials/token/${tokenId}/delete`, {
@@ -190,7 +216,7 @@ test('the local demo supports scoped profile edits and rejects broad mutations',
     assert.equal((await fetch(`${base}/`, { headers: { cookie: tokenCookie }, redirect: 'manual' })).status, 302);
     const revokedLogin = await fetch(`${base}/login`, {
       method: 'POST', redirect: 'manual',
-      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      headers: { cookie, 'content-type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({ token })
     });
     assert.equal(revokedLogin.headers.get('location'), '/login');
@@ -203,7 +229,7 @@ test('the local demo supports scoped profile edits and rejects broad mutations',
     const sshId = (await (await request('/identities')).text()).match(new RegExp(`${sshName}[\\s\\S]*?data-delete="/credentials/ssh/([a-f0-9]{24})/delete"`))?.[1];
     assert.ok(sshId);
     const challengeResponse = await fetch(`${base}/login/ssh/challenge`, {
-      method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      method: 'POST', headers: { cookie, 'content-type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({ credentialId: sshId })
     });
     assert.equal(challengeResponse.status, 200);
@@ -218,4 +244,47 @@ test('the local demo supports scoped profile edits and rejects broad mutations',
     const sshLogin = await verifyRequest();
     assert.equal(sshLogin.headers.get('location'), '/');
     assert.equal((await verifyRequest()).headers.get('location'), '/login');
+  });
+
+test('two browser sessions receive independent disposable tenants',
+  { skip: process.env.RUN_HTTP_TEST !== '1' }, async () => {
+    const base = 'http://127.0.0.1:3000';
+    const start = async () => {
+      const page = await fetch(`${base}/login`);
+      let cookie = page.headers.get('set-cookie')?.split(';')[0];
+      const login = await fetch(`${base}/login`, {
+        method: 'POST', redirect: 'manual',
+        headers: { cookie, 'content-type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ userfacade: 'demo', password: 'demo-idpam-only-2026' })
+      });
+      cookie = login.headers.get('set-cookie')?.split(';')[0];
+      const roles = await fetch(`${base}/roles`, { headers: { cookie } });
+      const html = await roles.text();
+      return {
+        cookie,
+        csrfToken: html.match(/name="csrfToken" value="([a-f0-9]{64})"/)?.[1]
+      };
+    };
+
+    const [visitorA, visitorB] = await Promise.all([start(), start()]);
+    const uniqueRole = `OnlyVisitorA${Date.now().toString(36)}`;
+    const created = await fetch(`${base}/roles`, {
+      method: 'POST', redirect: 'manual',
+      headers: { cookie: visitorA.cookie, 'content-type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ csrfToken: visitorA.csrfToken, name: uniqueRole })
+    });
+    assert.equal(created.status, 303);
+
+    const aHtml = await (await fetch(`${base}/roles`, { headers: { cookie: visitorA.cookie } })).text();
+    const roleId = aHtml.match(new RegExp(`${uniqueRole}[\\s\\S]*?action="/roles/([a-f0-9]{24})"`))?.[1];
+    assert.ok(roleId);
+    const bHtml = await (await fetch(`${base}/roles`, { headers: { cookie: visitorB.cookie } })).text();
+    assert.doesNotMatch(bHtml, new RegExp(uniqueRole));
+
+    const crossTenantEdit = await fetch(`${base}/roles/${roleId}`, {
+      method: 'POST', redirect: 'manual',
+      headers: { cookie: visitorB.cookie, 'content-type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ csrfToken: visitorB.csrfToken, name: 'CrossTenantDenied' })
+    });
+    assert.equal(crossTenantEdit.status, 404);
   });

@@ -1,7 +1,7 @@
 extends ../layouts/main.pug
 
 block main
-  section.main.loginStage
+  main#main-content.main.loginStage
     form.form(action='/login' method='post')
       h1 Welcome
       input(type='text' placeholder='uf' name='userfacade' autocomplete='username' aria-label='Usuario' required)

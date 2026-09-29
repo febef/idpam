@@ -10,12 +10,13 @@ import compression  from 'compression'
 import path        from 'path'
 
 export default class eServer {
-  constructor({port, host, logger}) {
+  constructor({port, host, logger, trustProxy=false}) {
 
     this.express = express;
     this.port = port;
     this.host = host;
     this.logger = logger;
+    this.trustProxy = trustProxy;
     this._setup();
   }
 }
@@ -24,6 +25,7 @@ eServer.prototype._setup = function() {
   this.app = this.express();
 
   this.app.disable('x-powered-by');
+  if (this.trustProxy) this.app.set('trust proxy', this.trustProxy);
   this.app.use(cookieParser());
   this.app.use(this.express.json());
   this.app.use(this.express.urlencoded({ extended: false }));

@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: idpam-demo-dex
+data:
+  config.yaml: |
+    issuer: https://idpam.demos.apx.domus.land/dex
+    storage:
+      type: sqlite3
+      config:
+        file: /var/dex/dex.db
+    web:
+      http: 0.0.0.0:5556
+    oauth2:
+      skipApprovalScreen: true
+    staticClients:
+      - id: idpam-demo
+        name: IdPAM public demo
+        public: true
+        redirectURIs:
+          - https://idpam.demos.apx.domus.land/oidc/callback
+    connectors:
+      - type: ldap
+        id: demo-ldap
+        name: Synthetic LDAP
+        config:
+          host: 127.0.0.1:6360
+          rootCA: /etc/dex/ldap-ca/ca.crt
+          bindDN: cn=readonly,dc=idpam,dc=test
+          bindPW: idpam-readonly-demo-2026
+          userSearch:
+            baseDN: ou=people,dc=idpam,dc=test
+            filter: (objectClass=inetOrgPerson)
+            username: uid
+            idAttr: uid
+            emailAttr: mail
+            nameAttr: cn

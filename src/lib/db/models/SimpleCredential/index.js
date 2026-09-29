@@ -2,18 +2,22 @@ import mongoose from 'mongoose'
 import bcrypt from 'bcrypt'
 import fs from 'fs'
 import { fileURLToPath } from 'url'
+import { tenantPlugin } from '../../../demo/tenantPlugin.js'
 
 let saltRounds = 10;
 
 const SimpleCredentialSchema = new mongoose.Schema({
   userfacade: { type: String, select: false, required: true},
   password: { type: String, select: false, required: true},
-  ufpwd: { type: String, select: false, unique: true},
+  ufpwd: { type: String, select: false},
   name: { type: String},
   enabled: { type: Boolean, default: true},
   expiration: {type: Number, default: 0},
   roles: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Role' }]
 });
+
+SimpleCredentialSchema.plugin(tenantPlugin);
+SimpleCredentialSchema.index({ tenantId: 1, userfacade: 1 }, { unique: true });
 
 SimpleCredentialSchema.statics.verifyMethod = function(data) {
   return data.password && data.userfacade;

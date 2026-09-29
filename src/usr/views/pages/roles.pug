@@ -1,7 +1,7 @@
 extends ../layouts/main.pug
 
 block main
-  section.main
+  main#main-content.main
     header.legacySectionTitle
       h3 Roles
       button.min-info(type='button' data-open='create-role') (+)
@@ -31,7 +31,7 @@ block main
         fieldset.flex-rigth
           button.min-info(type='button' data-delete=`/roles/${role._id}/delete`) (delete)
 
-      dialog.dialog(id=`edit-role-${role._id}`)
+      dialog.dialog(id=`edit-role-${role._id}` aria-label='Edit role')
         header.boxTitle
           h3 Edit role
           button.btn.close(type='button' data-close aria-label='Cerrar') x
@@ -41,7 +41,7 @@ block main
             input(name='name' value=role.name required minlength='2' maxlength='60')
           button(type='submit') save
 
-      dialog.dialog(id=`create-permission-${role._id}`)
+      dialog.dialog(id=`create-permission-${role._id}` aria-label='Create permission')
         header.boxTitle
           h3 Create permission
           button.btn.close(type='button' data-close aria-label='Cerrar') x
@@ -54,7 +54,7 @@ block main
           button(type='submit') create
 
       each permission in role.permissions
-        dialog.dialog(id=`edit-permission-${permission._id}`)
+        dialog.dialog(id=`edit-permission-${permission._id}` aria-label='Edit permission')
           header.boxTitle
             h3 Edit permission
             button.btn.close(type='button' data-close aria-label='Cerrar') x
@@ -66,7 +66,7 @@ block main
               input(name='verbs' value=permission.verbs.join(', ') required)
             button(type='submit') save
 
-    dialog.dialog#create-role
+    dialog.dialog#create-role(aria-label='Create role')
       header.boxTitle
         h3 Create role
         button.btn.close(type='button' data-close aria-label='Cerrar') x
@@ -92,4 +92,4 @@ block main
         label target
           input(name='target' placeholder='identity:example' required maxlength='120')
         button(type='submit') check
-      output#access-result
+      output#access-result(aria-live='polite')

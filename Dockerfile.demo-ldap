@@ -1,0 +1,17 @@
+FROM alpine:3.23@sha256:85fe1e81d6758c208f3e1eed4338a1997e19d4be002d4dd32d3100c9a8c010a0
+
+RUN apk add --no-cache \
+      openldap=2.6.13-r0 \
+      openldap-back-mdb=2.6.13-r0 \
+      openldap-clients=2.6.13-r0 \
+    && install -d -o ldap -g ldap -m 0700 /var/lib/openldap/openldap-data \
+    && install -d -o ldap -g ldap -m 0755 /run/openldap
+
+COPY --chown=ldap:ldap demo/ldap/slapd.conf /etc/openldap/slapd.conf
+COPY --chown=ldap:ldap demo/ldap/bootstrap.ldif /etc/openldap/bootstrap.ldif
+COPY --chown=ldap:ldap demo/ldap/docker-entrypoint.sh /usr/local/bin/idpam-demo-ldap
+RUN chmod 0555 /usr/local/bin/idpam-demo-ldap
+
+USER ldap
+EXPOSE 6360
+ENTRYPOINT ["/usr/local/bin/idpam-demo-ldap"]

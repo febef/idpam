@@ -99,11 +99,17 @@ públicos. [GitHub](https://github.com/febef/idpam) y
 [GitLab](https://gitlab.com/febef.dev/idpam) representan el mismo árbol e
 historia saneados.
 
-La demo actual sigue siendo **local**. LDAP y OIDC funcionan con datos de
-prueba, pero el contenedor OpenLDAP utilizado es `2.6.10-alpha`: no se promoverá
-a Internet sin sustituirlo por una versión estable, fijar imágenes por digest y
-revisar certificados, sesiones, aislamiento entre visitantes, rate limiting,
-accesibilidad y todas las mutaciones de la API. El formulario de gestión tiene
-CSRF y la API genérica histórica está cerrada, pero eso no certifica toda la
-aplicación. Los manifiestos de despliegue público y su pipeline de seguridad son
-un gate separado de la publicación del código fuente.
+La receta pública vive en [`deploy/production`](deploy/production). Mantiene una
+sola instancia descartable con IdPAM, MongoDB, OpenLDAP estable y Dex; sólo
+IdPAM y Dex reciben tráfico del borde. Cada navegador obtiene un tenant y una
+sesión independientes, persistidos en MongoDB temporal, con CSRF, rotación de
+sesión y límites de intentos y mutaciones. Las imágenes propias y las imágenes
+base están fijadas y el pipeline genera SBOM, analiza vulnerabilidades y
+secretos y publica únicamente tags semánticos aprobados.
+
+El contrato sigue siendo el de una **PoC pública**, no el de un IAM productivo:
+usa identidades sintéticas, restablece el estado, opera con una réplica y no
+acepta datos reales. La publicación sólo se considera completa cuando CI,
+GitOps, DNS/TLS, el retorno OIDC y las pruebas HTTP externas verifican el mismo
+release. El formulario de gestión tiene CSRF y la API genérica histórica está
+cerrada, pero eso no convierte al prototipo en un producto de seguridad.

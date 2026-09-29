@@ -6,8 +6,7 @@ mixin property(object, item, parent)
 mixin propertyBool(object, item, parent)
   span.min-info= `${item}: `
     span.verb(data-verb='edit' data-type=object.constructor.name data-target=`${parent?'.'+parent:''}${item}`)= object
-    button.checkbox
-      input(type="checkbox", checked=object)
+    span.checkbox(aria-hidden='true')= object ? '☑' : '☐'
   br
 
 mixin btn(object, verb, item, parent, classlist='min-info', caption='(+)', model)
@@ -84,4 +83,3 @@ mixin editableObject(object, item='', parent='', itemClass='', ignoreProp='_')
           +editableObject(object[prop], prop, `${parent?'.'+parent:''}${item}`)
         else
           +editableObject(object[prop], prop, null)
-

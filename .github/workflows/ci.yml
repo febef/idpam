@@ -22,3 +22,5 @@ jobs:
       - run: npm test --prefix src
       - run: npm audit --prefix src --audit-level=high
       - run: docker build --file Dockerfile.demo --tag idpam:verify .
+      - run: docker build --file Dockerfile.demo-ldap --tag idpam-ldap:verify .
+      - run: docker build --file Dockerfile.demo-ca --tag idpam-ca:verify .

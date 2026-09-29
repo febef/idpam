@@ -1,0 +1,28 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: idpam-demo
+
+resources:
+  - namespace.yaml
+  - dex-config.yaml
+  - workload.yaml
+  - service.yaml
+  - network-policy.yaml
+  - httproute.yaml
+
+# CI replaces this gate only after the three images pass tests and scans.
+images:
+  - name: registry.gitlab.com/febef.dev/idpam
+    newTag: v0.0.0-unreleased
+  - name: registry.gitlab.com/febef.dev/idpam/ldap
+    newTag: v0.0.0-unreleased
+  - name: registry.gitlab.com/febef.dev/idpam/ca
+    newTag: v0.0.0-unreleased
+
+labels:
+  - pairs:
+      app.kubernetes.io/name: idpam-demo
+      app.kubernetes.io/part-of: domus-demos
+      app.kubernetes.io/managed-by: argocd
+    includeSelectors: false
