@@ -237,10 +237,11 @@ dialog.dialog[open] {
   max-height: calc(100vh - 1.5rem);
   overflow: auto;
   padding: 0;
-  border: 1px solid #00000030;
-  background: #00000030;
-  backdrop-filter: blur(2px);
-  color: black;
+  border: 1px solid #9ad7c480;
+  background: rgba(10, 28, 27, .94);
+  box-shadow: 0 14px 38px #001b1aa6, 0 0 0 1px #0008;
+  backdrop-filter: blur(8px);
+  color: whitesmoke;
   z-index: 200;
 }
 dialog.dialog::backdrop { background: #00000045; }
@@ -261,8 +262,8 @@ dialog.dialog form {
   display: block;
   margin: 1px;
   padding: 4px 6px;
-  border: 1px solid #00000030;
-  background: #00000030;
+  border: 1px solid #ffffff24;
+  background: #ffffff0d;
 }
 dialog.dialog form > label {
   display: flex;
@@ -270,7 +271,7 @@ dialog.dialog form > label {
   align-items: center;
   gap: 6px;
   margin: 3px 0;
-  color: black;
+  color: whitesmoke;
   font: 10px monospace;
 }
 dialog.dialog input:not([type='checkbox']),
@@ -282,9 +283,9 @@ dialog.dialog select {
   height: auto;
   min-height: 24px;
   padding: 2px;
-  border: 1px solid #00000040;
-  background: transparent;
-  color: black;
+  border: 1px solid #ffffff52;
+  background: #00151499;
+  color: whitesmoke;
   font: 11px monospace;
 }
 dialog.dialog select option { color: black; }
@@ -292,7 +293,15 @@ dialog.dialog textarea { min-height: 3rem; }
 dialog.dialog input[type='checkbox'] { width: auto; }
 dialog.dialog form > fieldset { display: block; margin: 4px 0; font: 10px monospace; }
 dialog.dialog form > fieldset label { display: inline-flex; align-items: center; gap: 3px; margin-right: 8px; }
-dialog.dialog form > button[type='submit'] { display: block; margin: 5px auto 2px; padding: 2px 7px; color: black; font: 11px monospace; }
+dialog.dialog form > button[type='submit'] {
+  display: block;
+  margin: 5px auto 2px;
+  padding: 2px 7px;
+  border: 1px solid #9ad7c480;
+  background: #ffffff1a;
+  color: whitesmoke;
+  font: 11px monospace;
+}
 dialog.dialog .tokenReceipt { padding: 8px; font: 11px monospace; }
 dialog.dialog .tokenReceipt pre { margin: 6px 0; white-space: pre-wrap; overflow-wrap: anywhere; user-select: all; }
 .accessCheck button { padding: .3rem .5rem; background: #ffffff30; color: whitesmoke; }
