@@ -8,8 +8,8 @@ Dex and every other path to IdPAM. MongoDB and LDAP have no edge route.
 
 All state uses memory-backed `emptyDir` volumes. `Recreate` plus one replica
 keeps session rate limits and the disposable tenant lifecycle coherent. The
-three project-owned images are release-gated with the
-`v0.0.0-unreleased` placeholder until CI publishes a scanned semantic tag.
+Kustomize overlay pins the application, LDAP bootstrap, and CA bootstrap images
+to the same scanned semantic release tag.
 Third-party runtime images and base images are pinned by digest.
 
 The namespace denies all Pod egress and permits Cilium's ingress and host

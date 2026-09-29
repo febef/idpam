@@ -27,8 +27,9 @@ test('the public overlay remains disposable, single-replica and release gated', 
     read('deploy/production/network-policy.yaml')
   ]);
 
-  assert.match(kustomization, /newTag: v0\.0\.0-unreleased/g);
-  assert.equal((kustomization.match(/newTag: v0\.0\.0-unreleased/g) || []).length, 3);
+  const releaseTags = [...kustomization.matchAll(/newTag: (v\d+\.\d+\.\d+)/g)].map((match) => match[1]);
+  assert.equal(releaseTags.length, 3);
+  assert.equal(new Set(releaseTags).size, 1);
   assert.match(workload, /replicas: 1/);
   assert.match(workload, /type: Recreate/);
   assert.equal((workload.match(/medium: Memory/g) || []).length, 9);
