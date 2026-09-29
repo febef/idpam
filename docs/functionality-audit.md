@@ -25,17 +25,18 @@ heredado presente en el repositorio. No acredita aptitud para Internet.
 
 1. Aislar las modificaciones de cada visitante; el almacenamiento compartido
    de perfiles de esta demo local no es un contrato público aceptable.
-2. Auditar historia Git y archivos heredados por secretos, licencias y datos
-   ajenos. Confirmar visibilidad/propiedad del remoto GitHub antes de publicar
-   `legacy` o configurar espejo hacia GitLab personal.
+2. Mantener la historia pública saneada y sus espejos GitHub/GitLab sobre el
+   mismo commit verificado. Auditar cada cambio nuevo por secretos, licencias y
+   datos ajenos; el tag y el repositorio históricos permanecen privados.
 3. Reemplazar `MemoryStore`, revisar fijación/expiración de sesiones, CSRF de
    todas las operaciones, cabeceras, login y rate limiting. Hacer pruebas
    negativas de rutas y cambios de roles/credenciales.
 4. Definir recurso, límites y rollout Kubernetes; DNS/TLS, probes, reset y
    rollback. Publicar sólo desde CI con imagen auditada e inmutable.
 5. Verificar teclado, contraste, móvil, errores y recuperación del flujo
-   completo. El post editorial queda borrador hasta que los enlaces y la
-   demo representen el estado publicado.
+   completo. El artículo puede enlazar el código fuente público, pero debe
+   presentar la demo como no disponible hasta que su despliegue represente el
+   estado realmente verificado.
 6. Sustituir la imagen OpenLDAP alpha; fijar imágenes por digest y llevar OIDC
    a HTTPS con hostname público, cliente/redirect exactos y certificados
    gestionados. Agregar pruebas automáticas del regreso OIDC y fallos de LDAP.

@@ -5,11 +5,19 @@ identidad, credenciales y permisos granulares. Se publica como prueba de
 concepto y material de estudio, no como producto terminado ni como solución
 recomendada para producción.
 
+La presentación editorial del proyecto está disponible en
+[Projects · Domus.land](https://projects.domus.land/es/proyectos/idpam/), con
+su [versión en inglés](https://projects.domus.land/en/projects/idpam/).
+
 El contrato verificable y sus límites están en [docs/demo-contract.md](docs/demo-contract.md);
 el [inventario funcional](docs/functionality-audit.md) separa lo comprobado de
 las funciones históricas aún no habilitadas.
 La [guía de la demo local](docs/local-demo-guide.md) propone un recorrido
 reproducible sin añadir tutoriales a la interfaz original.
+Quienes contribuyan con ayuda de agentes pueden consultar la
+[guía pública de contribución y automatización](AGENTS.md), que fija los límites
+de producto, seguridad, pruebas y publicación sin exponer la bitácora operativa
+del proyecto.
 
 ## Ejecutar en este equipo
 
@@ -87,7 +95,9 @@ La historia pública se reconstruye desde hitos verificables con sus fechas
 originales, excluyendo secretos, datos reales y la copia antigua de dependencias
 que vivía en `src/node_modules-bkp/`. El tag privado `legacy` y el repositorio
 histórico se conservan como respaldo, pero no forman parte de los mirrors
-públicos. GitHub y GitLab deben representar el mismo árbol e historia saneados.
+públicos. [GitHub](https://github.com/febef/idpam) y
+[GitLab](https://gitlab.com/febef.dev/idpam) representan el mismo árbol e
+historia saneados.
 
 La demo actual sigue siendo **local**. LDAP y OIDC funcionan con datos de
 prueba, pero el contenedor OpenLDAP utilizado es `2.6.10-alpha`: no se promoverá
