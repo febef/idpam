@@ -54,6 +54,8 @@ test('the local demo supports scoped profile edits and rejects broad mutations',
     assert.match(homeHtml, /id="home-add-tokencredentials"/);
     assert.match(homeHtml, /id="home-add-sshkeycredentials"/);
     assert.match(homeHtml, /id="home-token-issued"/);
+    const currentIdentityId = homeHtml.match(/<main[^>]+data-identity-id="([a-f0-9]{24})"/)?.[1];
+    assert.ok(currentIdentityId);
     const match = html.match(/action="(\/demo\/identities\/([a-f0-9]{24})\/profile)"[^>]*>[\s\S]*?name="csrfToken" value="([a-f0-9]{64})"/);
     assert.ok(match, 'an editable synthetic identity has a CSRF-protected form');
     const [, path, , initialCsrfToken] = match;
@@ -70,6 +72,27 @@ test('the local demo supports scoped profile edits and rejects broad mutations',
     const saved = await request(path, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body });
     assert.equal(saved.status, 303);
     assert.match(await (await request('/identities')).text(), /Ada HTTP/);
+
+    const secondaryName = `Secondary ${runId}`;
+    const secondaryUser = `secondary.${runId}`;
+    assert.equal((await request(`/identities/${currentIdentityId}/credentials/simple`, {
+      method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        csrfToken, name: secondaryName, userfacade: secondaryUser,
+        password: 'demo-secondary-pass-2026', enabled: 'on'
+      })
+    })).status, 303);
+    const editableCredentialsHtml = await (await request('/identities')).text();
+    const secondaryId = editableCredentialsHtml.match(
+      new RegExp(`data-inline-form="edit-simple-([a-f0-9]{24})"[^>]*[^<]*${secondaryName}`)
+    )?.[1];
+    assert.ok(secondaryId, 'a secondary credential on the active identity remains editable');
+    assert.match(editableCredentialsHtml, new RegExp(`id="edit-simple-${secondaryId}"`));
+    assert.equal((await request(`/credentials/simple/${secondaryId}`, {
+      method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ csrfToken, name: `${secondaryName} edited`, enabled: 'on' })
+    })).status, 303);
+    assert.match(await (await request('/identities')).text(), new RegExp(`${secondaryName} edited`));
 
     const roles = await request('/roles');
     assert.equal(roles.status, 200);

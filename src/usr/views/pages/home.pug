@@ -31,7 +31,11 @@ block main
               //span &#128270;
           .div.scroll-container
             for credential, key in id.credentials[credentialType]
-              article.box(data-target=`${credentialType.split('').slice(0,-1).join('')}:${credential.id}`)
+              article.box.credentialEntry(
+                data-target=`${credentialType.split('').slice(0,-1).join('')}:${credential.id}`
+                data-credential-id=credential.id
+                data-current-credential=(String(credential.id) === String(currentCredentialId) ? 'true' : 'false')
+              )
                 +editableObject(credential, '', '')
                 fieldset.flex-rigth
                   button.min-info(type='button' data-verb='delete' aria-label=`Delete ${credential.name || credentialType}`) (delete)

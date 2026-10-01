@@ -198,8 +198,18 @@ function legacyDestination(control) {
     return;
   }
 
-  if (control.closest('.credentialEntry, article.box')) {
-    window.alert('La credencial de acceso de la demo está protegida. Administrá otras credenciales desde Identities.');
+  const credentialEntry = control.closest('.credentialEntry, article.box[data-credential-id]');
+  if (credentialEntry) {
+    if (credentialEntry.dataset.currentCredential === 'true') {
+      window.alert('La credencial usada por esta sesión está protegida.');
+      return;
+    }
+    const credentialId = credentialEntry.dataset.credentialId;
+    if (kind === 'simplecredentials' && credentialId) {
+      window.location.assign(`/identities?open=edit-simple-${credentialId}`);
+      return;
+    }
+    window.location.assign('/identities');
     return;
   }
 
@@ -207,7 +217,7 @@ function legacyDestination(control) {
 }
 
 const requestedDialog = new URLSearchParams(location.search).get('open');
-if (requestedDialog && /^((profile|add-(simple|token|ssh)credentials)-[a-f0-9]{24}|create-identity|create-role)$/i.test(requestedDialog)) {
+if (requestedDialog && /^((profile|edit-simple|add-(simple|token|ssh)credentials)-[a-f0-9]{24}|create-identity|create-role)$/i.test(requestedDialog)) {
   openDialog(requestedDialog);
 }
 

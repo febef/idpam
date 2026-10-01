@@ -167,8 +167,43 @@ h3,b {
   padding-left: 2px;
 }
 
-nav, .userMenu {
+nav {
   display: inline-block;
+}
+
+.userMenu {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  color: whitesmoke;
+  white-space: nowrap;
+}
+
+.userMenu > a {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  color: whitesmoke;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.userMenu > form {
+  display: inline-flex;
+  margin: 0;
+}
+
+.userMenu .logout {
+  padding: 0 3px;
+  border: 0;
+  background: transparent;
+  color: whitesmoke;
+  font: 10px 'Monserrat';
+}
+
+.userMenu .logout:hover,
+.userMenu .logout:focus-visible {
+  color: orangered;
 }
 
 nav > h1 {
@@ -354,6 +389,5 @@ dialog.dialog .tokenReceipt pre { margin: 6px 0; white-space: pre-wrap; overflow
   }
   body > header .userMenu a {
     min-width: 0;
-    overflow-wrap: anywhere;
   }
 }

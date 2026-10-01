@@ -33,10 +33,11 @@ block main
                 input.min-info(id=`filter-${kind}-${identity._id}` type='search' data-filter)
             .scroll-container
               each credential in credentials
+                - const isCurrentCredential = String(credential._id) === String(currentCredentialId)
                 article.box.credentialEntry(data-credential-id=credential._id)
                   fieldset
                     span.min-info name:
-                      span.verb(data-inline-field=kind === 'simplecredentials' && !isCurrent ? 'name' : null data-inline-form=kind === 'simplecredentials' && !isCurrent ? `edit-simple-${credential._id}` : null tabindex=kind === 'simplecredentials' && !isCurrent ? '0' : null role=kind === 'simplecredentials' && !isCurrent ? 'button' : null aria-label=kind === 'simplecredentials' && !isCurrent ? 'Editar nombre de credencial' : null)= credential.name
+                      span.verb(data-inline-field=kind === 'simplecredentials' && !isCurrentCredential ? 'name' : null data-inline-form=kind === 'simplecredentials' && !isCurrentCredential ? `edit-simple-${credential._id}` : null tabindex=kind === 'simplecredentials' && !isCurrentCredential ? '0' : null role=kind === 'simplecredentials' && !isCurrentCredential ? 'button' : null aria-label=kind === 'simplecredentials' && !isCurrentCredential ? 'Editar nombre de credencial' : null)= credential.name
                   if credential.userfacade
                     fieldset
                       span.min-info= `userfacade: ${credential.userfacade}`
@@ -48,7 +49,7 @@ block main
                   if credential.roles && credential.roles.length
                     fieldset
                       span.min-info= `roles: [ ${credential.roles.map(role => role.name).join(', ')} ]`
-                  if kind !== 'ldapcredentials' && !isCurrent
+                  if kind !== 'ldapcredentials' && !isCurrentCredential
                     fieldset.flex-rigth
                       button.min-info(type='button' data-delete=kind === 'simplecredentials' ? `/credentials/simple/${credential._id}/delete` : kind === 'tokencredentials' ? `/credentials/token/${credential._id}/delete` : `/credentials/ssh/${credential._id}/delete`) (delete)
               else
@@ -133,7 +134,8 @@ block main
           button(type='submit') create
 
       each credential in groups.simplecredentials || []
-        if !isCurrent
+        - const isCurrentCredential = String(credential._id) === String(currentCredentialId)
+        if !isCurrentCredential
           dialog.dialog(id=`edit-simple-${credential._id}` aria-label='Edit simple credential')
             header.boxTitle
               h3 Edit simple credential
