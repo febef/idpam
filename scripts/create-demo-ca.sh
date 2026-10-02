@@ -9,5 +9,5 @@ openssl req -x509 -nodes -newkey rsa:3072 -days 2 -sha256 \
 cp /certs/tls.crt /certs/ca.crt
 cp /certs/ca.crt /ca/ca.crt
 chmod 0644 /certs/tls.crt /certs/ca.crt /ca/ca.crt
-chown 100:101 /certs/tls.key
 chmod 0600 /certs/tls.key
+chown 100:101 /certs/tls.key

@@ -53,3 +53,16 @@ test('the project-owned runtime images and their bases are pinned', async () => 
   assert.match(compose, /dex:v2\.45\.1@sha256:[a-f0-9]{64}/);
   assert.match(compose, /mongo:7\.0@sha256:[a-f0-9]{64}/);
 });
+
+test('the disposable CA locks down the key before transferring ownership', async () => {
+  const script = await read('scripts/create-demo-ca.sh');
+  const chmodIndex = script.indexOf('chmod 0600 /certs/tls.key');
+  const chownIndex = script.indexOf('chown 100:101 /certs/tls.key');
+
+  assert.notEqual(chmodIndex, -1);
+  assert.notEqual(chownIndex, -1);
+  assert.ok(
+    chmodIndex < chownIndex,
+    'chmod must happen before chown when the init container drops CAP_FOWNER'
+  );
+});
