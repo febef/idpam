@@ -4,14 +4,17 @@ import test from 'node:test';
 
 import { demoResetConfig } from '../src/lib/demo/resetConfig.js';
 
-test('accepts only the isolated compose Mongo database', () => {
-  assert.deepEqual(
-    demoResetConfig('mongodb://mongo:27017/idpam_demo', '3600'),
-    { intervalSeconds: 3600 }
-  );
+test('accepts only the isolated Compose or same-pod Mongo database', () => {
+  for (const uri of [
+    'mongodb://mongo:27017/idpam_demo',
+    'mongodb://127.0.0.1:27017/idpam_demo'
+  ]) {
+    assert.deepEqual(demoResetConfig(uri, '3600'), { intervalSeconds: 3600 });
+  }
 
   for (const uri of [
     'mongodb://localhost:27017/idpam_demo',
+    'mongodb://127.0.0.2:27017/idpam_demo',
     'mongodb://mongo:27017/production',
     'mongodb://user:pass@mongo:27017/idpam_demo',
     'mongodb://mongo:27017/idpam_demo?authSource=admin'
