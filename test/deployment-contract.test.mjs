@@ -32,7 +32,7 @@ test('the public overlay remains disposable, single-replica and release gated', 
   assert.equal(new Set(releaseTags).size, 1);
   assert.match(workload, /replicas: 1/);
   assert.match(workload, /type: Recreate/);
-  assert.match(workload, /name: ldap[\s\S]*?limits:[\s\S]*?memory: 256Mi/);
+  assert.match(workload, /name: ldap[\s\S]*?limits:[\s\S]*?memory: 512Mi/);
   assert.equal((workload.match(/medium: Memory/g) || []).length, 9);
   assert.match(networkPolicy, /- ingress/);
   assert.match(networkPolicy, /- host/);
