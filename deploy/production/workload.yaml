@@ -128,6 +128,7 @@ spec:
               command: [mongosh, --quiet, --eval, "db.adminCommand({ ping: 1 }).ok"]
             initialDelaySeconds: 3
             periodSeconds: 5
+            timeoutSeconds: 5
           resources:
             requests:
               cpu: 25m
