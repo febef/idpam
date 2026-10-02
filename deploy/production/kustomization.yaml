@@ -14,11 +14,11 @@ resources:
 # Production is pinned only after the three images pass tests and scans.
 images:
   - name: registry.gitlab.com/febef.dev/idpam
-    newTag: v0.2.2
+    newTag: v0.2.3
   - name: registry.gitlab.com/febef.dev/idpam/ldap
-    newTag: v0.2.2
+    newTag: v0.2.3
   - name: registry.gitlab.com/febef.dev/idpam/ca
-    newTag: v0.2.2
+    newTag: v0.2.3
 
 labels:
   - pairs:
