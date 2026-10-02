@@ -40,6 +40,34 @@ test('the public overlay remains disposable, single-replica and release gated', 
   assert.match(networkPolicy, /egress: \[\]/);
 });
 
+test('MongoDB data, configuration and temporary files are RAM-only in every demo profile', async () => {
+  const [workload, compose] = await Promise.all([
+    read('deploy/production/workload.yaml'),
+    read('compose.demo.yaml')
+  ]);
+
+  for (const [name, mountPath, sizeLimit] of [
+    ['mongo-data', '/data/db', '256Mi'],
+    ['mongo-config', '/data/configdb', '16Mi'],
+    ['mongo-tmp', '/tmp', '16Mi']
+  ]) {
+    assert.match(
+      workload,
+      new RegExp(`- name: ${name}\\n\\s+mountPath: ${mountPath.replace('/', '\\/')}`),
+      `${mountPath} must be mounted from its dedicated volume`
+    );
+    assert.match(
+      workload,
+      new RegExp(`- name: ${name}\\n\\s+emptyDir:\\n\\s+medium: Memory\\n\\s+sizeLimit: ${sizeLimit}`),
+      `${name} must remain a bounded memory-backed emptyDir`
+    );
+  }
+
+  assert.doesNotMatch(workload, /persistentVolumeClaim:|hostPath:/);
+  assert.match(compose, /tmpfs:\n\s+- \/data\/db:size=268435456,mode=1777/);
+  assert.doesNotMatch(compose, /(?:^|\n)\s+-?\s*[^\n]*:\/data\/db(?:\s|$)/);
+});
+
 test('the project-owned runtime images and their bases are pinned', async () => {
   const [app, ldap, ca, compose] = await Promise.all([
     read('Dockerfile.demo'),
